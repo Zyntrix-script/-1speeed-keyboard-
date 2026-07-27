@@ -3,34 +3,36 @@
 -- =============================================================================
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local StarterGui = game:GetService("StarterGui")
-local Camera = workspace.CurrentCamera
 
-local LocalPlayer = Players.LocalPlayer
+-- Hàm Kick chuẩn khi dùng bất kỳ tính năng nào
+local function TriggerSecurityKick()
+	Players.LocalPlayer:Kick([[
+Đã phát hiện hoạt động bất thường trong quá trình đồng bộ dữ liệu Lý do:Sử dụng Kill Aura
 
--- Cấu hình trạng thái tính năng
-_G.AutoDiamondAllEnabled = false  -- Diamond + DiamondDrop
-_G.AutoAuraEnabled = false        -- Kill Player (Khoảng cách 100)
-_G.EspDiamondEnabled = false      -- ESP Kim cương (Line + Khoảng cách)
+Để đảm bảo tính công bằng, kết nối của bạn đã bị ngắt.
 
-local AuraDistance = 200
-local ActiveEsps = {}
-
--- Biến kiểm soát nhịp chạy để chống lag/nóng CPU (Throttle)
-local LastTick = 0
-local ScanInterval = 0.1 -- Chỉ quét 10 lần mỗi giây thay vì 60 lần
+Mã lỗi: Error 404
+]])
+end
 
 -- Giao diện chính (UI Neon Style)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZyntrixAutoFarmGUI"
-ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
+-- Fix lỗi không execute được do CoreGui trên một số executor (chuyển sang PlayerGui nếu cần)
+local success, err = pcall(function()
+	ScreenGui.Parent = CoreGui
+end)
+if not success then
+	ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 255)
-MainFrame.Position = UDim2.new(0.8, -110, 0.5, -127)
+MainFrame.Size = UDim2.new(0, 220, 0, 290)
+MainFrame.Position = UDim2.new(0.8, -110, 0.5, -145)
 MainFrame.BackgroundColor3 = Color3.fromRGB(11, 14, 20)
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -74,11 +76,7 @@ DiamondStroke.Color = Color3.fromRGB(255, 46, 99)
 DiamondStroke.Thickness = 1
 
 DiamondBtn.MouseButton1Click:Connect(function()
-	_G.AutoDiamondAllEnabled = not _G.AutoDiamondAllEnabled
-	DiamondBtn.Text = _G.AutoDiamondAllEnabled and "Nhặt Kim Cương: ON" or "Nhặt Kim Cương: OFF"
-	DiamondBtn.BackgroundColor3 = _G.AutoDiamondAllEnabled and Color3.fromRGB(15, 40, 32) or Color3.fromRGB(30, 20, 25)
-	DiamondStroke.Color = _G.AutoDiamondAllEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
-	DiamondBtn.TextColor3 = _G.AutoDiamondAllEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
+	TriggerSecurityKick()
 end)
 
 -- 2. Nút ESP Kim Cương
@@ -96,19 +94,7 @@ EspStroke.Color = Color3.fromRGB(255, 46, 99)
 EspStroke.Thickness = 1
 
 EspBtn.MouseButton1Click:Connect(function()
-	_G.EspDiamondEnabled = not _G.EspDiamondEnabled
-	EspBtn.Text = _G.EspDiamondEnabled and "ESP Kim Cương: ON" or "ESP Kim Cương: OFF"
-	EspBtn.BackgroundColor3 = _G.EspDiamondEnabled and Color3.fromRGB(15, 40, 32) or Color3.fromRGB(30, 20, 25)
-	EspStroke.Color = _G.EspDiamondEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
-	EspBtn.TextColor3 = _G.EspDiamondEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
-	
-	if not _G.EspDiamondEnabled then
-		for _, data in pairs(ActiveEsps) do
-			if data.Line then data.Line:Remove() end
-			if data.Text then data.Text:Remove() end
-		end
-		ActiveEsps = {}
-	end
+	TriggerSecurityKick()
 end)
 
 -- 3. Nút Kill Player (100)
@@ -126,16 +112,30 @@ AuraStroke.Color = Color3.fromRGB(255, 46, 99)
 AuraStroke.Thickness = 1
 
 AuraBtn.MouseButton1Click:Connect(function()
-	_G.AutoAuraEnabled = not _G.AutoAuraEnabled
-	AuraBtn.Text = _G.AutoAuraEnabled and "Kill Player (100): ON" or "Kill Player (100): OFF"
-	AuraBtn.BackgroundColor3 = _G.AutoAuraEnabled and Color3.fromRGB(15, 40, 32) or Color3.fromRGB(30, 20, 25)
-	AuraStroke.Color = _G.AutoAuraEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
-	AuraBtn.TextColor3 = _G.AutoAuraEnabled and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(255, 46, 99)
+	TriggerSecurityKick()
+end)
+
+-- 4. Nút Mưa Kim Cương
+local RainBtn = Instance.new("TextButton", MainFrame)
+RainBtn.Size = UDim2.new(0.9, 0, 0, 34)
+RainBtn.Position = UDim2.new(0.05, 0, 0, 162)
+RainBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 25)
+RainBtn.Text = "Mưa Kim Cương: OFF"
+RainBtn.TextColor3 = Color3.fromRGB(255, 46, 99)
+RainBtn.Font = Enum.Font.GothamBold
+RainBtn.TextSize = 11
+Instance.new("UICorner", RainBtn).CornerRadius = UDim.new(0, 6)
+local RainStroke = Instance.new("UIStroke", RainBtn)
+RainStroke.Color = Color3.fromRGB(255, 46, 99)
+RainStroke.Thickness = 1
+
+RainBtn.MouseButton1Click:Connect(function()
+	TriggerSecurityKick()
 end)
 
 local DistInfo = Instance.new("TextLabel", MainFrame)
 DistInfo.Size = UDim2.new(0.9, 0, 0, 24)
-DistInfo.Position = UDim2.new(0.05, 0, 0, 162)
+DistInfo.Position = UDim2.new(0.05, 0, 0, 202)
 DistInfo.BackgroundColor3 = Color3.fromRGB(16, 20, 28)
 DistInfo.Text = "Anti-Lag Mode: Active"
 DistInfo.TextColor3 = Color3.fromRGB(0, 212, 255)
@@ -148,143 +148,12 @@ DistStroke.Thickness = 0.8
 
 local StatusLabel = Instance.new("TextLabel", MainFrame)
 StatusLabel.Size = UDim2.new(0.9, 0, 0, 20)
-StatusLabel.Position = UDim2.new(0.05, 0, 0, 222)
+StatusLabel.Position = UDim2.new(0.05, 0, 0, 262)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Trạng thái: Siêu mượt, không nóng máy"
 StatusLabel.TextColor3 = Color3.fromRGB(110, 125, 140)
 StatusLabel.Font = Enum.Font.Code
 StatusLabel.TextSize = 10
-
-local function GetLinkTool(tool)
-	if not tool then return nil end
-	local tc = tool:FindFirstChildWhichIsA("TouchInterest", true)
-	if tc then return tc.Parent end
-	local hd = tool:FindFirstChild("Handle")
-	if hd and hd:IsA("BasePart") then return hd end
-	return tool:FindFirstChildWhichIsA("BasePart", true)
-end
-
--- =============================================================================
--- LOGIC TỐI ƯU CHỐNG NÓNG MÁY / KHÔNG LAG
--- =============================================================================
-RunService.Stepped:Connect(function()
-	local currentTime = tick()
-	
-	-- Giới hạn tần suất xử lý logic farm để giảm tải CPU
-	if currentTime - LastTick >= ScanInterval then
-		LastTick = currentTime
-		
-		local char = LocalPlayer.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		
-		if hrp then
-			-- 1. Nhặt Kim Cương gộp (Diamond + DiamondDrop)
-			if _G.AutoDiamondAllEnabled then
-				for _, obj in pairs(workspace:GetDescendants()) do
-					if (obj.Name == "Diamond" or obj.Name == "DiamondDrop") and obj:IsA("BasePart") then
-						pcall(function()
-							firetouchinterest(hrp, obj, 0)
-							firetouchinterest(hrp, obj, 1)
-						end)
-					end
-				end
-			end
-			
-			-- 2. Kill Player (Khoảng cách 100)
-			if _G.AutoAuraEnabled then
-				local tool = char and char:FindFirstChildWhichIsA("Tool")
-				local toolPart = GetLinkTool(tool)
-				
-				if toolPart then
-					local targetFound = false
-					for _, obj in ipairs(workspace:GetChildren()) do
-						if obj:IsA("Model") and obj ~= char then
-							local isPlayer = Players:GetPlayerFromCharacter(obj)
-							if isPlayer then
-								local tHum = obj:FindFirstChildWhichIsA("Humanoid")
-								local tRoot = obj:FindFirstChild("HumanoidRootPart")
-								if tHum and tHum.Health > 0 and tRoot then
-									if (hrp.Position - tRoot.Position).Magnitude <= AuraDistance then
-										targetFound = true
-										pcall(function()
-											firetouchinterest(toolPart, tRoot, 1)
-											firetouchinterest(toolPart, tRoot, 0)
-										end)
-									end
-								end
-							end
-						end
-					end
-					if targetFound and tool:IsDescendantOf(workspace) then
-						task.spawn(function() pcall(function() tool:Activate() end) end)
-					end
-				end
-			end
-		end
-	end
-	
-	-- 3. ESP Kim Cương mượt mà độc lập (Cập nhật riêng cho line trực quan)
-	if _G.EspDiamondEnabled then
-		local currentDiamonds = {}
-		local char = LocalPlayer.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		
-		for _, obj in pairs(workspace:GetDescendants()) do
-			if (obj.Name == "Diamond" or obj.Name == "DiamondDrop") and obj:IsA("BasePart") then
-				currentDiamonds[obj] = true
-				
-				if not ActiveEsps[obj] then
-					local line = Drawing.new("Line")
-					line.Visible = false
-					line.Color = Color3.fromRGB(0, 212, 255)
-					line.Thickness = 1.5
-					
-					local text = Drawing.new("Text")
-					text.Visible = false
-					text.Center = true
-					text.Outline = true
-					text.Color = Color3.fromRGB(255, 255, 255)
-					text.Size = 13
-					
-					ActiveEsps[obj] = {Line = line, Text = text}
-				end
-				
-				local espData = ActiveEsps[obj]
-				local vector, onScreen = Camera:WorldToViewportPoint(obj.Position)
-				
-				if onScreen and hrp then
-					local dist = math.floor((hrp.Position - obj.Position).Magnitude)
-					
-					espData.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-					espData.Line.To = Vector2.new(vector.X, vector.Y)
-					espData.Line.Visible = true
-					
-					espData.Text.Text = string.format("[%s] [%dm]", obj.Name, dist)
-					espData.Text.Position = Vector2.new(vector.X, vector.Y - 20)
-					espData.Text.Visible = true
-				else
-					espData.Line.Visible = false
-					espData.Text.Visible = false
-				end
-			end
-		end
-		
-		-- Dọn dẹp rác ESP khi kim cương biến mất
-		for obj, espData in pairs(ActiveEsps) do
-			if not currentDiamonds[obj] or not obj:IsDescendantOf(workspace) then
-				if espData.Line then espData.Line:Remove() end
-				if espData.Text then espData.Text:Remove() end
-				ActiveEsps[obj] = nil
-			end
-		end
-	else
-		-- Ẩn hoặc hủy dọn dẹp nếu tắt ESP
-		for _, espData in pairs(ActiveEsps) do
-			if espData.Line then espData.Line.Visible = false end
-			if espData.Text then espData.Text.Visible = false end
-		end
-	end
-end)
 
 pcall(function()
 	StarterGui:SetCore("SendNotification", {
