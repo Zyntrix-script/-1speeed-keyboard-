@@ -1,59 +1,2696 @@
--- [[ MANUAL COLLECT - CLICK TO GATHER VERSION ]] --
-local p = game:GetService("Players").LocalPlayer
-local CoreGui = game:GetService("CoreGui")
+--[[==============================================================
+    MOBILE CONTROL SUITE V6
+    FULL MOBILE KEYBOARD
+    TOUCH ONLY - NO MOUSE
 
-local targetName = "StageEnd" -- Tên vật phẩm cần nhặt
-local radius = 50000000 -- Khoảng cách quét (có thể chỉnh lên 10000 nếu muốn toàn map)
+    TOTAL: 37 BUTTONS
 
--- 1. GIAO DIỆN (UI)
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-local MainBtn = Instance.new("TextButton", ScreenGui)
-MainBtn.Size = UDim2.new(0, 130, 0, 40)
-MainBtn.Position = UDim2.new(0.9, -130, 0.6, 0)
-MainBtn.Text = "Win "
-MainBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215) -- Màu xanh dương
-MainBtn.TextColor3 = Color3.new(1,1,1)
-MainBtn.Font = Enum.Font.SourceSansBold
-MainBtn.TextSize = 16
-MainBtn.Draggable = true
-local Corner = Instance.new("UICorner", MainBtn)
+    MOVEMENT
+    W A S D
+    SPACE SHIFT CTRL
 
--- 2. LOGIC KHI BẤM NÚT
-MainBtn.MouseButton1Click:Connect(function()
-local char = p.Character
-local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    ACTION
+    E Q F R X C V G
 
-if hrp then  
-    local count = 0  
-    MainBtn.Text = "gần win"  
-    MainBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)  
+    NUMBERS
+    1 2 3 4 5 6 7 8 9 0
 
-    for _, obj in pairs(workspace:GetDescendants()) do  
-        -- Kiểm tra tên và khoảng cách  
-        if obj.Name == targetName and obj:IsA("BasePart") then  
-            local dist = (obj.Position - hrp.Position).Magnitude  
-            if dist <= radius then  
-                -- Giả lập chạm (Touch) để nhặt mà không cần di chuyển tới  
-                firetouchinterest(hrp, obj, 0)  
-                firetouchinterest(hrp, obj, 1)  
-                count = count + 1  
-            end  
-        end  
-    end  
-      
-    -- Thông báo kết quả trên nút  
-    MainBtn.Text = "XONG! ("..count..")"  
-    MainBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)  
-      
-    task.wait(1)  
-    MainBtn.Text = "Win"  
-    MainBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)  
+    UI
+    TAB M I P L K
+
+    EXTRA
+    T Y U B N J
+
+    FEATURES
+    • 37 buttons
+    • Touch only
+    • No mouse
+    • Drag
+    • Snap 8px
+    • Screen boundary
+    • Edit Mode
+    • Edit Mode disables all keys
+    • Lock / Unlock
+    • Reset layout
+    • Copy all coordinates
+    • Touch cursor
+    • Cursor size
+    • Settings
+    • Stable button size
+    • Stable coordinates
+==============================================================]]
+
+--==============================================================
+-- SERVICES
+--==============================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--==============================================================
+-- CONFIG
+--==============================================================
+
+local SNAP_SIZE = 8
+
+local controlsEnabled = true
+local editMode = false
+local layoutLocked = true
+
+local cursorSize = 52
+
+local draggingButton = nil
+local dragStart = nil
+local startPosition = nil
+
+local sliderDragging = false
+
+local activeMovement = {
+    W = false,
+    A = false,
+    S = false,
+    D = false
+}
+
+local allButtons = {}
+local buttonDefaults = {}
+
+--==============================================================
+-- CLEAN OLD GUI
+--==============================================================
+
+local oldGui =
+    PlayerGui:FindFirstChild("MobileControlSuite")
+
+if oldGui then
+    oldGui:Destroy()
 end
+
+local oldBlur =
+    Lighting:FindFirstChild("MobileControlBlur")
+
+if oldBlur then
+    oldBlur:Destroy()
+end
+
+--==============================================================
+-- SCREEN GUI
+--==============================================================
+
+local ScreenGui =
+    Instance.new("ScreenGui")
+
+ScreenGui.Name =
+    "MobileControlSuite"
+
+ScreenGui.ResetOnSpawn =
+    false
+
+ScreenGui.IgnoreGuiInset =
+    true
+
+ScreenGui.ZIndexBehavior =
+    Enum.ZIndexBehavior.Sibling
+
+ScreenGui.Parent =
+    PlayerGui
+
+--==============================================================
+-- CONTROL LAYER
+--==============================================================
+
+local ControlLayer =
+    Instance.new("Frame")
+
+ControlLayer.Name =
+    "KeyboardLayer"
+
+ControlLayer.Size =
+    UDim2.fromScale(1, 1)
+
+ControlLayer.Position =
+    UDim2.fromScale(0, 0)
+
+ControlLayer.BackgroundTransparency =
+    1
+
+ControlLayer.BorderSizePixel =
+    0
+
+ControlLayer.Parent =
+    ScreenGui
+
+--==============================================================
+-- SETTINGS BUTTON
+--==============================================================
+
+local SettingsBtn =
+    Instance.new("TextButton")
+
+SettingsBtn.Name =
+    "Settings"
+
+SettingsBtn.Size =
+    UDim2.fromOffset(42, 42)
+
+SettingsBtn.Position =
+    UDim2.new(
+        1,
+        -52,
+        0,
+        12
+    )
+
+SettingsBtn.BackgroundColor3 =
+    Color3.fromRGB(
+        25,
+        25,
+        30
+    )
+
+SettingsBtn.BackgroundTransparency =
+    0.2
+
+SettingsBtn.Text =
+    "⚙"
+
+SettingsBtn.TextColor3 =
+    Color3.new(1, 1, 1)
+
+SettingsBtn.TextSize =
+    20
+
+SettingsBtn.Font =
+    Enum.Font.GothamBold
+
+SettingsBtn.AutoButtonColor =
+    false
+
+SettingsBtn.ZIndex =
+    150
+
+SettingsBtn.Parent =
+    ControlLayer
+
+local settingsCorner =
+    Instance.new("UICorner")
+
+settingsCorner.CornerRadius =
+    UDim.new(1, 0)
+
+settingsCorner.Parent =
+    SettingsBtn
+
+local settingsStroke =
+    Instance.new("UIStroke")
+
+settingsStroke.Color =
+    Color3.new(1, 1, 1)
+
+settingsStroke.Transparency =
+    0.72
+
+settingsStroke.Thickness =
+    1
+
+settingsStroke.Parent =
+    SettingsBtn
+
+--==============================================================
+-- BLUR
+--==============================================================
+
+local Blur =
+    Instance.new("BlurEffect")
+
+Blur.Name =
+    "MobileControlBlur"
+
+Blur.Size =
+    0
+
+Blur.Parent =
+    Lighting
+
+--==============================================================
+-- SETTINGS PANEL
+--==============================================================
+
+local Panel =
+    Instance.new("Frame")
+
+Panel.Name =
+    "SettingsPanel"
+
+Panel.Size =
+    UDim2.fromOffset(
+        310,
+        380
+    )
+
+Panel.Position =
+    UDim2.new(
+        0.5,
+        -155,
+        0.5,
+        -190
+    )
+
+Panel.BackgroundColor3 =
+    Color3.fromRGB(
+        15,
+        15,
+        20
+    )
+
+Panel.BackgroundTransparency =
+    0.05
+
+Panel.Visible =
+    false
+
+Panel.ZIndex =
+    200
+
+Panel.Parent =
+    ControlLayer
+
+local panelCorner =
+    Instance.new("UICorner")
+
+panelCorner.CornerRadius =
+    UDim.new(
+        0,
+        16
+    )
+
+panelCorner.Parent =
+    Panel
+
+local panelStroke =
+    Instance.new("UIStroke")
+
+panelStroke.Color =
+    Color3.new(1, 1, 1)
+
+panelStroke.Transparency =
+    0.7
+
+panelStroke.Parent =
+    Panel
+
+--==============================================================
+-- TITLE
+--==============================================================
+
+local Title =
+    Instance.new("TextLabel")
+
+Title.Size =
+    UDim2.new(
+        1,
+        -60,
+        0,
+        45
+    )
+
+Title.Position =
+    UDim2.fromOffset(
+        16,
+        5
+    )
+
+Title.BackgroundTransparency =
+    1
+
+Title.Text =
+    "⚙  Cài đặt bàn phím"
+
+Title.TextColor3 =
+    Color3.new(1, 1, 1)
+
+Title.Font =
+    Enum.Font.GothamBold
+
+Title.TextSize =
+    15
+
+Title.TextXAlignment =
+    Enum.TextXAlignment.Left
+
+Title.ZIndex =
+    201
+
+Title.Parent =
+    Panel
+
+--==============================================================
+-- CLOSE
+--==============================================================
+
+local Close =
+    Instance.new("TextButton")
+
+Close.Size =
+    UDim2.fromOffset(
+        35,
+        35
+    )
+
+Close.Position =
+    UDim2.new(
+        1,
+        -43,
+        0,
+        8
+    )
+
+Close.BackgroundTransparency =
+    1
+
+Close.Text =
+    "✕"
+
+Close.TextColor3 =
+    Color3.fromRGB(
+        190,
+        190,
+        190
+    )
+
+Close.TextSize =
+    17
+
+Close.Font =
+    Enum.Font.GothamBold
+
+Close.ZIndex =
+    201
+
+Close.Parent =
+    Panel
+
+--==============================================================
+-- PANEL BUTTON
+--==============================================================
+
+local function MakePanelButton(text, y)
+
+    local button =
+        Instance.new("TextButton")
+
+    button.Size =
+        UDim2.new(
+            1,
+            -32,
+            0,
+            42
+        )
+
+    button.Position =
+        UDim2.fromOffset(
+            16,
+            y
+        )
+
+    button.BackgroundColor3 =
+        Color3.fromRGB(
+            45,
+            45,
+            52
+        )
+
+    button.Text =
+        text
+
+    button.TextColor3 =
+        Color3.new(1, 1, 1)
+
+    button.Font =
+        Enum.Font.GothamBold
+
+    button.TextSize =
+        12
+
+    button.AutoButtonColor =
+        false
+
+    button.ZIndex =
+        201
+
+    button.Parent =
+        Panel
+
+    local corner =
+        Instance.new("UICorner")
+
+    corner.CornerRadius =
+        UDim.new(
+            0,
+            9
+        )
+
+    corner.Parent =
+        button
+
+    return button
+
+end
+
+--==============================================================
+-- PANEL BUTTONS
+--==============================================================
+
+local LockBtn =
+    MakePanelButton(
+        "🔒  Khóa vị trí",
+        60
+    )
+
+local EditBtn =
+    MakePanelButton(
+        "✎  Chỉnh sửa: TẮT",
+        110
+    )
+
+local ToggleBtn =
+    MakePanelButton(
+        "Phím ảo: BẬT",
+        160
+    )
+
+local ResetBtn =
+    MakePanelButton(
+        "↻  Đặt lại vị trí",
+        210
+    )
+
+local CopyPosBtn =
+    MakePanelButton(
+        "📋  Copy tọa độ 37 nút",
+        260
+    )
+
+--==============================================================
+-- CURSOR LABEL
+--==============================================================
+
+local SliderLabel =
+    Instance.new("TextLabel")
+
+SliderLabel.Size =
+    UDim2.new(
+        1,
+        -32,
+        0,
+        22
+    )
+
+SliderLabel.Position =
+    UDim2.fromOffset(
+        16,
+        312
+    )
+
+SliderLabel.BackgroundTransparency =
+    1
+
+SliderLabel.Text =
+    "Kích thước con trỏ: 52"
+
+SliderLabel.TextColor3 =
+    Color3.fromRGB(
+        205,
+        205,
+        205
+    )
+
+SliderLabel.Font =
+    Enum.Font.Gotham
+
+SliderLabel.TextSize =
+    11
+
+SliderLabel.TextXAlignment =
+    Enum.TextXAlignment.Left
+
+SliderLabel.ZIndex =
+    201
+
+SliderLabel.Parent =
+    Panel
+
+--==============================================================
+-- SLIDER
+--==============================================================
+
+local Slider =
+    Instance.new("Frame")
+
+Slider.Size =
+    UDim2.new(
+        1,
+        -32,
+        0,
+        6
+    )
+
+Slider.Position =
+    UDim2.fromOffset(
+        16,
+        342
+    )
+
+Slider.BackgroundColor3 =
+    Color3.fromRGB(
+        45,
+        45,
+        50
+    )
+
+Slider.ZIndex =
+    201
+
+Slider.Parent =
+    Panel
+
+local sliderCorner =
+    Instance.new("UICorner")
+
+sliderCorner.CornerRadius =
+    UDim.new(
+        1,
+        0
+    )
+
+sliderCorner.Parent =
+    Slider
+
+local Fill =
+    Instance.new("Frame")
+
+Fill.Size =
+    UDim2.new(
+        0.44,
+        0,
+        1,
+        0
+    )
+
+Fill.BackgroundColor3 =
+    Color3.fromRGB(
+        99,
+        102,
+        241
+    )
+
+Fill.ZIndex =
+    202
+
+Fill.Parent =
+    Slider
+
+local fillCorner =
+    Instance.new("UICorner")
+
+fillCorner.CornerRadius =
+    UDim.new(
+        1,
+        0
+    )
+
+fillCorner.Parent =
+    Fill
+
+local Knob =
+    Instance.new("TextButton")
+
+Knob.Size =
+    UDim2.fromOffset(
+        18,
+        18
+    )
+
+Knob.Position =
+    UDim2.new(
+        0.44,
+        -9,
+        0.5,
+        -9
+    )
+
+Knob.BackgroundColor3 =
+    Color3.new(1, 1, 1)
+
+Knob.Text =
+    ""
+
+Knob.AutoButtonColor =
+    false
+
+Knob.ZIndex =
+    203
+
+Knob.Parent =
+    Slider
+
+local knobCorner =
+    Instance.new("UICorner")
+
+knobCorner.CornerRadius =
+    UDim.new(
+        1,
+        0
+    )
+
+knobCorner.Parent =
+    Knob
+
+--==============================================================
+-- SNAP
+--==============================================================
+
+local function Snap(value)
+
+    return math.floor(
+        value / SNAP_SIZE + 0.5
+    ) * SNAP_SIZE
+
+end
+
+--==============================================================
+-- DEFAULT POSITION
+--==============================================================
+
+local function SaveDefault(button)
+
+    buttonDefaults[button] = {
+
+        Position =
+            button.Position,
+
+        Size =
+            button.Size
+
+    }
+
+end
+
+--==============================================================
+-- INTERNAL EVENT
+--==============================================================
+
+local VirtualKeyEvent =
+    Instance.new("BindableEvent")
+
+VirtualKeyEvent.Name =
+    "VirtualKeyEvent"
+
+VirtualKeyEvent.Parent =
+    ScreenGui
+
+--==============================================================
+-- KEY CODES
+--==============================================================
+
+local KeyCodes = {
+
+    W = Enum.KeyCode.W,
+    A = Enum.KeyCode.A,
+    S = Enum.KeyCode.S,
+    D = Enum.KeyCode.D,
+
+    SPACE = Enum.KeyCode.Space,
+    SHIFT = Enum.KeyCode.LeftShift,
+    CTRL = Enum.KeyCode.LeftControl,
+
+    E = Enum.KeyCode.E,
+    Q = Enum.KeyCode.Q,
+    F = Enum.KeyCode.F,
+    R = Enum.KeyCode.R,
+
+    X = Enum.KeyCode.X,
+    C = Enum.KeyCode.C,
+    V = Enum.KeyCode.V,
+    G = Enum.KeyCode.G,
+
+    ["1"] = Enum.KeyCode.One,
+    ["2"] = Enum.KeyCode.Two,
+    ["3"] = Enum.KeyCode.Three,
+    ["4"] = Enum.KeyCode.Four,
+    ["5"] = Enum.KeyCode.Five,
+    ["6"] = Enum.KeyCode.Six,
+    ["7"] = Enum.KeyCode.Seven,
+    ["8"] = Enum.KeyCode.Eight,
+    ["9"] = Enum.KeyCode.Nine,
+    ["0"] = Enum.KeyCode.Zero,
+
+    TAB = Enum.KeyCode.Tab,
+
+    M = Enum.KeyCode.M,
+    I = Enum.KeyCode.I,
+    P = Enum.KeyCode.P,
+    L = Enum.KeyCode.L,
+    K = Enum.KeyCode.K,
+
+    T = Enum.KeyCode.T,
+    Y = Enum.KeyCode.Y,
+    U = Enum.KeyCode.U,
+    B = Enum.KeyCode.B,
+    N = Enum.KeyCode.N,
+    J = Enum.KeyCode.J
+}
+
+--==============================================================
+-- VIRTUAL INPUT
+--==============================================================
+
+local VirtualInputManager
+
+pcall(function()
+
+    VirtualInputManager =
+        game:GetService(
+            "VirtualInputManager"
+        )
 
 end)
 
-game:GetService("StarterGui"):SetCore("SendNotification", {
-Title = "Manual Mode",
-Text = "Bấm nút để thu thập vật phẩm xung quanh!",
-Duration = 3 tạo file
-})
+--==============================================================
+-- SEND VIRTUAL KEY
+--==============================================================
+
+local function SendVirtualKey(
+    key,
+    state
+)
+
+    if editMode then
+        return
+    end
+
+    if not controlsEnabled then
+        return
+    end
+
+    local keyCode =
+        KeyCodes[key]
+
+    if not keyCode then
+        return
+    end
+
+    if VirtualInputManager then
+
+        pcall(function()
+
+            VirtualInputManager:SendKeyEvent(
+                state,
+                keyCode,
+                false,
+                game
+            )
+
+        end)
+
+    end
+
+    VirtualKeyEvent:Fire(
+        key,
+        state
+    )
+
+end
+
+--==============================================================
+-- PRESS KEY
+--==============================================================
+
+local function PressKey(
+    key,
+    state
+)
+
+    if editMode then
+        return
+    end
+
+    if not controlsEnabled then
+        return
+    end
+
+    SendVirtualKey(
+        key,
+        state
+    )
+
+    --==========================================================
+    -- MOVEMENT STATE
+    --==========================================================
+
+    if activeMovement[key] ~= nil then
+
+        activeMovement[key] =
+            state
+
+    end
+
+    --==========================================================
+    -- SPACE
+    --==========================================================
+
+    if key == "SPACE"
+        and state then
+
+        local character =
+            Player.Character
+
+        local humanoid =
+            character
+            and
+            character:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if humanoid then
+            humanoid.Jump = true
+        end
+
+    end
+
+    --==========================================================
+    -- SHIFT
+    --==========================================================
+
+    if key == "SHIFT" then
+
+        local character =
+            Player.Character
+
+        local humanoid =
+            character
+            and
+            character:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if humanoid then
+
+            if state then
+
+                humanoid.WalkSpeed =
+                    24
+
+            else
+
+                humanoid.WalkSpeed =
+                    16
+
+            end
+
+        end
+
+    end
+
+end
+
+--==============================================================
+-- TEXT SIZE
+--==============================================================
+
+local function GetTextSize(key)
+
+    if key == "SPACE" then
+        return 11
+    end
+
+    if key == "SHIFT"
+        or key == "CTRL" then
+
+        return 9
+
+    end
+
+    if key == "TAB" then
+        return 10
+    end
+
+    return 12
+
+end
+
+--==============================================================
+-- SAFE POSITION
+--==============================================================
+
+local function SafePosition(
+    position,
+    size
+)
+
+    local viewport =
+        ControlLayer.AbsoluteSize
+
+    local screenW =
+        viewport.X
+
+    local screenH =
+        viewport.Y
+
+    local width =
+        size.X.Offset
+
+    local height =
+        size.Y.Offset
+
+    local x
+    local y
+
+    if position.X.Scale ~= 0 then
+
+        x =
+            screenW *
+            position.X.Scale +
+            position.X.Offset
+
+    else
+
+        x =
+            position.X.Offset
+
+    end
+
+    if position.Y.Scale ~= 0 then
+
+        y =
+            screenH *
+            position.Y.Scale +
+            position.Y.Offset
+
+    else
+
+        y =
+            position.Y.Offset
+
+    end
+
+    x =
+        math.clamp(
+            x,
+            0,
+            math.max(
+                0,
+                screenW - width
+            )
+        )
+
+    y =
+        math.clamp(
+            y,
+            0,
+            math.max(
+                0,
+                screenH - height
+            )
+        )
+
+    return UDim2.fromOffset(
+        Snap(x),
+        Snap(y)
+    )
+
+end
+
+--==============================================================
+-- CREATE KEY
+--==============================================================
+
+local function CreateKey(
+    key,
+    position,
+    size
+)
+
+    local button =
+        Instance.new("TextButton")
+
+    button.Name =
+        "Key_" .. key
+
+    local normalSize =
+        size or
+        UDim2.fromOffset(
+            42,
+            42
+        )
+
+    button.Size =
+        normalSize
+
+    button.Position =
+        SafePosition(
+            position,
+            normalSize
+        )
+
+    button.BackgroundColor3 =
+        Color3.fromRGB(
+            25,
+            25,
+            30
+        )
+
+    button.BackgroundTransparency =
+        0.25
+
+    button.Text =
+        key
+
+    button.TextColor3 =
+        Color3.new(
+            1,
+            1,
+            1
+        )
+
+    button.Font =
+        Enum.Font.GothamBold
+
+    button.TextSize =
+        GetTextSize(key)
+
+    button.TextScaled =
+        false
+
+    button.TextWrapped =
+        false
+
+    button.AutoButtonColor =
+        false
+
+    button.Active =
+        true
+
+    button.Selectable =
+        false
+
+    button.ZIndex =
+        2
+
+    button.Parent =
+        ControlLayer
+
+    --==========================================================
+    -- CORNER
+    --==========================================================
+
+    local corner =
+        Instance.new("UICorner")
+
+    corner.CornerRadius =
+        UDim.new(
+            key == "SPACE"
+                and 0.25
+                or 0.18,
+            0
+        )
+
+    corner.Parent =
+        button
+
+    --==========================================================
+    -- STROKE
+    --==========================================================
+
+    local stroke =
+        Instance.new("UIStroke")
+
+    stroke.Color =
+        Color3.new(
+            1,
+            1,
+            1
+        )
+
+    stroke.Transparency =
+        0.72
+
+    stroke.Thickness =
+        1
+
+    stroke.Parent =
+        button
+
+    allButtons[key] =
+        button
+
+    SaveDefault(button)
+
+    --==========================================================
+    -- TOUCH BEGIN
+    --==========================================================
+
+    button.InputBegan:Connect(
+        function(input)
+
+            if input.UserInputType
+                ~= Enum.UserInputType.Touch then
+
+                return
+
+            end
+
+            --==================================================
+            -- EDIT MODE
+            --==================================================
+
+            if editMode then
+
+                if not layoutLocked then
+
+                    draggingButton =
+                        button
+
+                    dragStart =
+                        input.Position
+
+                    startPosition =
+                        button.Position
+
+                    button.ZIndex =
+                        100
+
+                    button.BackgroundTransparency =
+                        0.05
+
+                end
+
+                return
+
+            end
+
+            --==================================================
+            -- NORMAL MODE
+            --==================================================
+
+            if not controlsEnabled then
+                return
+            end
+
+            PressKey(
+                key,
+                true
+            )
+
+            button.BackgroundTransparency =
+                0.05
+
+        end
+    )
+
+    --==========================================================
+    -- TOUCH END
+    --==========================================================
+
+    button.InputEnded:Connect(
+        function(input)
+
+            if input.UserInputType
+                ~= Enum.UserInputType.Touch then
+
+                return
+
+            end
+
+            if draggingButton == button then
+
+                -- Don't release key in edit mode
+                EndDrag()
+
+                return
+
+            end
+
+            if editMode then
+                return
+            end
+
+            if not controlsEnabled then
+                return
+            end
+
+            PressKey(
+                key,
+                false
+            )
+
+            button.BackgroundTransparency =
+                0.25
+
+        end
+    )
+
+    return button
+
+end
+
+--==============================================================
+-- EXACT V6 COORDINATES
+--==============================================================
+
+local ButtonCoordinates = {
+
+    --==========================================================
+    -- MOVEMENT
+    --==========================================================
+
+    W = {
+        XScale = 0,
+        XOffset = 88,
+        YScale = 1,
+        YOffset = -168,
+        Width = 42,
+        Height = 42
+    },
+
+    A = {
+        XScale = 0,
+        XOffset = 32,
+        YScale = 1,
+        YOffset = -112,
+        Width = 42,
+        Height = 42
+    },
+
+    S = {
+        XScale = 0,
+        XOffset = 88,
+        YScale = 1,
+        YOffset = -56,
+        Width = 42,
+        Height = 42
+    },
+
+    D = {
+        XScale = 0,
+        XOffset = 144,
+        YScale = 1,
+        YOffset = -112,
+        Width = 42,
+        Height = 42
+    },
+
+    SPACE = {
+        XScale = 0,
+        XOffset = 576,
+        YScale = 1,
+        YOffset = -112,
+        Width = 160,
+        Height = 40
+    },
+
+    SHIFT = {
+        XScale = 0,
+        XOffset = 680,
+        YScale = 1,
+        YOffset = -240,
+        Width = 60,
+        Height = 36
+    },
+
+    CTRL = {
+        XScale = 0,
+        XOffset = 680,
+        YScale = 1,
+        YOffset = -192,
+        Width = 60,
+        Height = 36
+    },
+
+    --==========================================================
+    -- ACTION
+    --==========================================================
+
+    E = {
+        XScale = 0,
+        XOffset = 576,
+        YScale = 1,
+        YOffset = -192,
+        Width = 42,
+        Height = 42
+    },
+
+    Q = {
+        XScale = 0,
+        XOffset = 256,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    F = {
+        XScale = 0,
+        XOffset = 624,
+        YScale = 1,
+        YOffset = -192,
+        Width = 42,
+        Height = 42
+    },
+
+    R = {
+        XScale = 0,
+        XOffset = 208,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    X = {
+        XScale = 0,
+        XOffset = 16,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    C = {
+        XScale = 0,
+        XOffset = 64,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    V = {
+        XScale = 0,
+        XOffset = 160,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    G = {
+        XScale = 0,
+        XOffset = 112,
+        YScale = 1,
+        YOffset = -304,
+        Width = 42,
+        Height = 42
+    },
+
+    --==========================================================
+    -- NUMBERS
+    --==========================================================
+
+    ["1"] = {
+        XScale = 0,
+        XOffset = 448,
+        YScale = 0,
+        YOffset = 56,
+        Width = 40,
+        Height = 38
+    },
+
+    ["2"] = {
+        XScale = 0,
+        XOffset = 488,
+        YScale = 0,
+        YOffset = 56,
+        Width = 40,
+        Height = 38
+    },
+
+    ["3"] = {
+        XScale = 0,
+        XOffset = 528,
+        YScale = 0,
+        YOffset = 56,
+        Width = 40,
+        Height = 38
+    },
+
+    ["4"] = {
+        XScale = 0,
+        XOffset = 568,
+        YScale = 0,
+        YOffset = 56,
+        Width = 40,
+        Height = 38
+    },
+
+    ["5"] = {
+        XScale = 0,
+        XOffset = 608,
+        YScale = 0,
+        YOffset = 56,
+        Width = 40,
+        Height = 38
+    },
+
+    ["6"] = {
+        XScale = 0,
+        XOffset = 608,
+        YScale = 0,
+        YOffset = 96,
+        Width = 40,
+        Height = 38
+    },
+
+    ["7"] = {
+        XScale = 0,
+        XOffset = 568,
+        YScale = 0,
+        YOffset = 96,
+        Width = 40,
+        Height = 38
+    },
+
+    ["8"] = {
+        XScale = 0,
+        XOffset = 528,
+        YScale = 0,
+        YOffset = 96,
+        Width = 40,
+        Height = 38
+    },
+
+    ["9"] = {
+        XScale = 0,
+        XOffset = 488,
+        YScale = 0,
+        YOffset = 96,
+        Width = 40,
+        Height = 38
+    },
+
+    ["0"] = {
+        XScale = 0,
+        XOffset = 764,
+        YScale = 0,
+        YOffset = 60,
+        Width = 40,
+        Height = 38
+    },
+
+    --==========================================================
+    -- UI
+    --==========================================================
+
+    TAB = {
+        XScale = 1,
+        XOffset = -344,
+        YScale = 0,
+        YOffset = 56,
+        Width = 45,
+        Height = 38
+    },
+
+    M = {
+        XScale = 1,
+        XOffset = -728,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    I = {
+        XScale = 1,
+        XOffset = -584,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    P = {
+        XScale = 1,
+        XOffset = -680,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    L = {
+        XScale = 1,
+        XOffset = -632,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    K = {
+        XScale = 1,
+        XOffset = -392,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    --==========================================================
+    -- EXTRA
+    --==========================================================
+
+    T = {
+        XScale = 1,
+        XOffset = -536,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    Y = {
+        XScale = 1,
+        XOffset = -440,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    U = {
+        XScale = 1,
+        XOffset = -344,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    B = {
+        XScale = 1,
+        XOffset = -488,
+        YScale = 0,
+        YOffset = 96,
+        Width = 45,
+        Height = 38
+    },
+
+    N = {
+        XScale = 1,
+        XOffset = -440,
+        YScale = 0,
+        YOffset = 56,
+        Width = 45,
+        Height = 38
+    },
+
+    J = {
+        XScale = 1,
+        XOffset = -392,
+        YScale = 0,
+        YOffset = 56,
+        Width = 45,
+        Height = 38
+    }
+}
+
+--==============================================================
+-- ORDER
+--==============================================================
+
+local OrderedKeys = {
+
+    "W",
+    "A",
+    "S",
+    "D",
+
+    "SPACE",
+    "SHIFT",
+    "CTRL",
+
+    "E",
+    "Q",
+    "F",
+    "R",
+    "X",
+    "C",
+    "V",
+    "G",
+
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "0",
+
+    "TAB",
+    "M",
+    "I",
+    "P",
+    "L",
+    "K",
+
+    "T",
+    "Y",
+    "U",
+    "B",
+    "N",
+    "J"
+}
+
+--==============================================================
+-- CREATE 37 BUTTONS
+--==============================================================
+
+for _, key in ipairs(
+    OrderedKeys
+) do
+
+    local data =
+        ButtonCoordinates[key]
+
+    if data then
+
+        CreateKey(
+
+            key,
+
+            UDim2.new(
+
+                data.XScale,
+                data.XOffset,
+
+                data.YScale,
+                data.YOffset
+
+            ),
+
+            UDim2.fromOffset(
+
+                data.Width,
+                data.Height
+
+            )
+
+        )
+
+    end
+
+end
+
+--==============================================================
+-- MOVEMENT ENGINE
+--==============================================================
+
+RunService.RenderStepped:Connect(
+    function()
+
+        if not controlsEnabled then
+            return
+        end
+
+        if editMode then
+            return
+        end
+
+        local character =
+            Player.Character
+
+        local humanoid =
+            character
+            and
+            character:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if not humanoid then
+            return
+        end
+
+        local move =
+            Vector3.zero
+
+        if activeMovement.W then
+
+            move += Vector3.new(
+                0,
+                0,
+                -1
+            )
+
+        end
+
+        if activeMovement.S then
+
+            move += Vector3.new(
+                0,
+                0,
+                1
+            )
+
+        end
+
+        if activeMovement.A then
+
+            move += Vector3.new(
+                -1,
+                0,
+                0
+            )
+
+        end
+
+        if activeMovement.D then
+
+            move += Vector3.new(
+                1,
+                0,
+                0
+            )
+
+        end
+
+        humanoid:Move(
+            move,
+            true
+        )
+
+    end
+)
+
+--==============================================================
+-- GLOBAL TOUCH DRAG
+--==============================================================
+
+UIS.InputChanged:Connect(
+    function(input)
+
+        if not draggingButton then
+            return
+        end
+
+        if input.UserInputType
+            == Enum.UserInputType.Touch then
+
+            UpdateDrag(input)
+
+        end
+
+    end
+)
+
+--==============================================================
+-- END GLOBAL DRAG
+--==============================================================
+
+UIS.InputEnded:Connect(
+    function(input)
+
+        if draggingButton
+            and
+            input.UserInputType
+                == Enum.UserInputType.Touch then
+
+            EndDrag()
+
+        end
+
+    end
+)
+
+--==============================================================
+-- LOCK
+--==============================================================
+
+LockBtn.Activated:Connect(
+    function()
+
+        if not editMode then
+            return
+        end
+
+        layoutLocked =
+            not layoutLocked
+
+        EndDrag()
+
+        if layoutLocked then
+
+            LockBtn.Text =
+                "🔒  Khóa vị trí"
+
+            LockBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    45,
+                    45,
+                    52
+                )
+
+        else
+
+            LockBtn.Text =
+                "🔓  Mở khóa vị trí"
+
+            LockBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    99,
+                    102,
+                    241
+                )
+
+        end
+
+    end
+)
+
+--==============================================================
+-- EDIT MODE
+--==============================================================
+
+EditBtn.Activated:Connect(
+    function()
+
+        editMode =
+            not editMode
+
+        EndDrag()
+
+        activeMovement.W = false
+        activeMovement.A = false
+        activeMovement.S = false
+        activeMovement.D = false
+
+        if editMode then
+
+            --==================================================
+            -- EDIT ON
+            --==================================================
+
+            controlsEnabled =
+                false
+
+            layoutLocked =
+                false
+
+            EditBtn.Text =
+                "✎  Chỉnh sửa: BẬT"
+
+            EditBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    99,
+                    102,
+                    241
+                )
+
+            LockBtn.Text =
+                "🔓  Mở khóa vị trí"
+
+            LockBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    99,
+                    102,
+                    241
+                )
+
+            for _, button in pairs(
+                allButtons
+            ) do
+
+                button.Visible =
+                    true
+
+                button.BackgroundColor3 =
+                    Color3.fromRGB(
+                        45,
+                        45,
+                        55
+                    )
+
+                button.TextTransparency =
+                    0.1
+
+            end
+
+        else
+
+            --==================================================
+            -- EDIT OFF
+            --==================================================
+
+            controlsEnabled =
+                true
+
+            layoutLocked =
+                true
+
+            EditBtn.Text =
+                "✎  Chỉnh sửa: TẮT"
+
+            EditBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    45,
+                    45,
+                    52
+                )
+
+            LockBtn.Text =
+                "🔒  Khóa vị trí"
+
+            LockBtn.BackgroundColor3 =
+                Color3.fromRGB(
+                    45,
+                    45,
+                    52
+                )
+
+            for _, button in pairs(
+                allButtons
+            ) do
+
+                button.Visible =
+                    true
+
+                button.BackgroundColor3 =
+                    Color3.fromRGB(
+                        25,
+                        25,
+                        30
+                    )
+
+                button.TextTransparency =
+                    0
+
+            end
+
+        end
+
+    end
+)
+
+--==============================================================
+-- ENABLE / DISABLE
+--==============================================================
+
+ToggleBtn.Activated:Connect(
+    function()
+
+        if editMode then
+            return
+        end
+
+        controlsEnabled =
+            not controlsEnabled
+
+        for _, button in pairs(
+            allButtons
+        ) do
+
+            button.Visible =
+                controlsEnabled
+
+        end
+
+        ToggleBtn.Text =
+            controlsEnabled
+            and
+            "Phím ảo: BẬT"
+            or
+            "Phím ảo: TẮT"
+
+        ToggleBtn.BackgroundColor3 =
+            controlsEnabled
+
+            and
+            Color3.fromRGB(
+                99,
+                102,
+                241
+            )
+
+            or
+            Color3.fromRGB(
+                45,
+                45,
+                52
+            )
+
+        activeMovement.W = false
+        activeMovement.A = false
+        activeMovement.S = false
+        activeMovement.D = false
+
+        EndDrag()
+
+    end
+)
+
+--==============================================================
+-- RESET
+--==============================================================
+
+ResetBtn.Activated:Connect(
+    function()
+
+        EndDrag()
+
+        for button, data in pairs(
+            buttonDefaults
+        ) do
+
+            if button
+                and
+                button.Parent then
+
+                button.Size =
+                    data.Size
+
+                button.Position =
+                    SafePosition(
+                        data.Position,
+                        data.Size
+                    )
+
+            end
+
+        end
+
+    end
+)
+
+--==============================================================
+-- GET COORDINATES
+--==============================================================
+
+local function GetButtonCoordinates()
+
+    local output = {}
+
+    table.insert(
+        output,
+        "-- MOBILE CONTROL SUITE V6"
+    )
+
+    table.insert(
+        output,
+        "-- TOTAL: 37 BUTTONS"
+    )
+
+    table.insert(
+        output,
+        ""
+    )
+
+    for _, key in ipairs(
+        OrderedKeys
+    ) do
+
+        local button =
+            allButtons[key]
+
+        if button
+            and
+            button.Parent then
+
+            local pos =
+                button.Position
+
+            local size =
+                button.Size
+
+            table.insert(
+
+                output,
+
+                string.format(
+
+                    '%s = {\n' ..
+                    '    XScale = %.4f,\n' ..
+                    '    XOffset = %d,\n' ..
+                    '    YScale = %.4f,\n' ..
+                    '    YOffset = %d,\n' ..
+                    '    Width = %d,\n' ..
+                    '    Height = %d\n' ..
+                    '},',
+
+                    key,
+
+                    pos.X.Scale,
+                    pos.X.Offset,
+
+                    pos.Y.Scale,
+                    pos.Y.Offset,
+
+                    size.X.Offset,
+                    size.Y.Offset
+
+                )
+
+            )
+
+        end
+
+    end
+
+    return table.concat(
+        output,
+        "\n"
+    )
+
+end
+
+--==============================================================
+-- CLIPBOARD
+--==============================================================
+
+local function CopyClipboard(text)
+
+    if setclipboard then
+
+        local success =
+            pcall(
+                function()
+
+                    setclipboard(
+                        text
+                    )
+
+                end
+            )
+
+        if success then
+            return true
+        end
+
+    end
+
+    if toclipboard then
+
+        local success =
+            pcall(
+                function()
+
+                    toclipboard(
+                        text
+                    )
+
+                end
+            )
+
+        if success then
+            return true
+        end
+
+    end
+
+    return false
+
+end
+
+--==============================================================
+-- COPY COORDINATES
+--==============================================================
+
+CopyPosBtn.Activated:Connect(
+    function()
+
+        local data =
+            GetButtonCoordinates()
+
+        local copied =
+            CopyClipboard(
+                data
+            )
+
+        if copied then
+
+            CopyPosBtn.Text =
+                "✅ Đã copy 37 tọa độ"
+
+            task.delay(
+                1.5,
+                function()
+
+                    if CopyPosBtn.Parent then
+
+                        CopyPosBtn.Text =
+                            "📋  Copy tọa độ 37 nút"
+
+                    end
+
+                end
+            )
+
+        else
+
+            warn(
+                "===== MOBILE CONTROL SUITE V6 ====="
+            )
+
+            warn(data)
+
+            CopyPosBtn.Text =
+                "⚠️ Clipboard không hỗ trợ"
+
+            task.delay(
+                2,
+                function()
+
+                    if CopyPosBtn.Parent then
+
+                        CopyPosBtn.Text =
+                            "📋  Copy tọa độ 37 nút"
+
+                    end
+
+                end
+            )
+
+        end
+
+    end
+)
+
+--==============================================================
+-- SETTINGS OPEN
+--==============================================================
+
+SettingsBtn.Activated:Connect(
+    function()
+
+        Panel.Visible =
+            true
+
+        TweenService:Create(
+
+            Blur,
+
+            TweenInfo.new(
+                0.2
+            ),
+
+            {
+                Size = 10
+            }
+
+        ):Play()
+
+    end
+)
+
+--==============================================================
+-- SETTINGS CLOSE
+--==============================================================
+
+Close.Activated:Connect(
+    function()
+
+        Panel.Visible =
+            false
+
+        TweenService:Create(
+
+            Blur,
+
+            TweenInfo.new(
+                0.2
+            ),
+
+            {
+                Size = 0
+            }
+
+        ):Play()
+
+    end
+)
+
+--==============================================================
+-- CURSOR
+--==============================================================
+
+local cursor = nil
+
+local function UpdateCursor(
+    position
+)
+
+    if not controlsEnabled
+        and
+        not editMode then
+
+        return
+    end
+
+    if not cursor then
+
+        cursor =
+            Instance.new(
+                "ImageLabel"
+            )
+
+        cursor.Name =
+            "TouchCursor"
+
+        cursor.BackgroundTransparency =
+            1
+
+        cursor.ZIndex =
+            500
+
+        cursor.Image =
+            "rbxthumb://type=Asset&id=12570006449&w=420&h=420"
+
+        cursor.Parent =
+            ControlLayer
+
+    end
+
+    cursor.Size =
+        UDim2.fromOffset(
+            cursorSize,
+            cursorSize
+        )
+
+    cursor.Position =
+        UDim2.fromOffset(
+
+            position.X -
+            cursorSize / 2,
+
+            position.Y -
+            cursorSize / 2
+
+        )
+
+end
+
+--==============================================================
+-- CURSOR TOUCH BEGIN
+--==============================================================
+
+UIS.InputBegan:Connect(
+    function(input)
+
+        if input.UserInputType
+            == Enum.UserInputType.Touch then
+
+            UpdateCursor(
+                input.Position
+            )
+
+        end
+
+    end
+)
+
+--==============================================================
+-- CURSOR TOUCH MOVE
+--==============================================================
+
+UIS.InputChanged:Connect(
+    function(input)
+
+        if input.UserInputType
+            == Enum.UserInputType.Touch then
+
+            UpdateCursor(
+                input.Position
+            )
+
+        end
+
+    end
+)
+
+--==============================================================
+-- CURSOR SLIDER BEGIN
+--==============================================================
+
+Knob.InputBegan:Connect(
+    function(input)
+
+        if input.UserInputType
+            == Enum.UserInputType.Touch then
+
+            sliderDragging =
+                true
+
+        end
+
+    end
+)
+
+--==============================================================
+-- CURSOR SLIDER MOVE
+--==============================================================
+
+UIS.InputChanged:Connect(
+    function(input)
+
+        if not sliderDragging then
+            return
+        end
+
+        if input.UserInputType
+            ~= Enum.UserInputType.Touch then
+
+            return
+        end
+
+        local x =
+            math.clamp(
+
+                (
+                    input.Position.X -
+                    Slider.AbsolutePosition.X
+                )
+                /
+                Slider.AbsoluteSize.X,
+
+                0,
+                1
+
+            )
+
+        Fill.Size =
+            UDim2.new(
+                x,
+                0,
+                1,
+                0
+            )
+
+        Knob.Position =
+            UDim2.new(
+                x,
+                -9,
+                0.5,
+                -9
+            )
+
+        cursorSize =
+            math.floor(
+                30 +
+                x * 50
+            )
+
+        SliderLabel.Text =
+            "Kích thước con trỏ: "
+            ..
+            tostring(
+                cursorSize
+            )
+
+        if cursor then
+
+            cursor.Size =
+                UDim2.fromOffset(
+                    cursorSize,
+                    cursorSize
+                )
+
+        end
+
+    end
+)
+
+--==============================================================
+-- CURSOR SLIDER END
+--==============================================================
+
+UIS.InputEnded:Connect(
+    function(input)
+
+        if input.UserInputType
+            == Enum.UserInputType.Touch then
+
+            sliderDragging =
+                false
+
+        end
+
+    end
+)
+
+--==============================================================
+-- SCREEN RESIZE
+-- KEEP BUTTONS INSIDE SCREEN
+--==============================================================
+
+ControlLayer:GetPropertyChangedSignal(
+    "AbsoluteSize"
+):Connect(
+    function()
+
+        task.defer(
+            function()
+
+                for _, button in pairs(
+                    allButtons
+                ) do
+
+                    if button
+                        and
+                        button.Parent then
+
+                        button.Position =
+                            SafePosition(
+                                button.Position,
+                                button.Size
+                            )
+
+                    end
+
+                end
+
+            end
+        )
+
+    end
+)
+
+--==============================================================
+-- INITIAL STATE
+--==============================================================
+
+layoutLocked =
+    true
+
+editMode =
+    false
+
+controlsEnabled =
+    true
+
+ToggleBtn.Text =
+    "Phím ảo: BẬT"
+
+EditBtn.Text =
+    "✎  Chỉnh sửa: TẮT"
+
+LockBtn.Text =
+    "🔒  Khóa vị trí"
+
+--==============================================================
+-- COUNT CHECK
+--==============================================================
+
+local count = 0
+
+for _, key in ipairs(
+    OrderedKeys
+) do
+
+    if allButtons[key] then
+
+        count += 1
+
+    end
+
+end
+
+--==============================================================
+-- DEBUG
+--==============================================================
+
+print(
+    "================================"
+)
+
+print(
+    " MOBILE CONTROL SUITE V6"
+)
+
+print(
+    " BUTTONS: "
+    ..
+    tostring(count)
+    ..
+    "/37"
+)
+
+print(
+    " TOUCH ONLY"
+)
+
+print(
+    " NO MOUSE"
+)
+
+print(
+    " SNAP: 8PX"
+)
+
+print(
+    " SCREEN BOUNDARY: ON"
+)
+
+print(
+    " EDIT MODE: KEY BLOCK"
+)
+
+print(
+    " DRAG: ON"
+)
+
+print(
+    " LOCK: ON"
+)
+
+print(
+    " COPY COORDINATES: ON"
+)
+
+print(
+    "================================"
+)
+
+if count == 37 then
+
+    print(
+        "✅ 37/37 BUTTONS READY"
+    )
+
+else
+
+    warn(
+        "⚠️ BUTTON ERROR: "
+        ..
+        tostring(count)
+        ..
+        "/37"
+    )
+
+end
