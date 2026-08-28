@@ -63,7 +63,7 @@ local controlsEnabled = true
 local editMode = false
 local layoutLocked = true
 
-local cursorSize = 52
+local cursorSize = 32
 
 local draggingButton = nil
 local dragStart = nil
