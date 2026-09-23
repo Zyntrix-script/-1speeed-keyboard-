@@ -949,7 +949,7 @@ New(
             1,
 
         Text =
-            "PAGES",
+            "Danh sách",
 
         TextColor3 =
             MUTED,
@@ -1058,19 +1058,19 @@ end
 
 
 local HomePage =
-    CreatePage("HOME")
+    CreatePage("Animation")
 
 local ControlPage =
-    CreatePage("CONTROL")
+    CreatePage("Emote")
 
 local ItemsPage =
-    CreatePage("ITEMS")
+    CreatePage("Player")
 
 local GamesPage =
-    CreatePage("GAMES")
+    CreatePage("Test")
 
 local SettingsPage =
-    CreatePage("SETTINGS")
+    CreatePage("Test")
 
 
 --========================================================--
@@ -1399,7 +1399,7 @@ end
 
 PageHeader(
     HomePage,
-    "HOME",
+    "Animation",
     "Welcome to ZYNTRIX PRIME"
 )
 
@@ -1454,7 +1454,7 @@ SimpleCard(
 
 PageHeader(
     ControlPage,
-    "CONTROL",
+    "Emote",
     "Control interface"
 )
 
@@ -1498,7 +1498,7 @@ SimpleCard(
 
 PageHeader(
     ItemsPage,
-    "ITEMS",
+    "Player",
     "Items interface"
 )
 
@@ -1542,7 +1542,7 @@ SimpleCard(
 
 PageHeader(
     GamesPage,
-    "GAMES",
+    "Test",
     "Games interface"
 )
 
@@ -1586,7 +1586,7 @@ SimpleCard(
 
 PageHeader(
     SettingsPage,
-    "SETTINGS",
+    "Test",
     "Interface settings"
 )
 
