@@ -33,9 +33,8 @@ local CONTROL_IMAGE_ID =
 local ITEMS_IMAGE_ID =
     ""
 
-local GAMES_IMAGE_ID =" rbxthumb://type=Asset&id= 1030847042&w=150&h=150"
-
-    ""
+local GAMES_IMAGE_ID =
+    "rbxthumb://type=Asset&id=1030847042&w=150&h=150"
 
 local SETTINGS_IMAGE_ID =
     "rbxthumb://type=Asset&id=9520684025&w=150&h=150"
