@@ -577,7 +577,7 @@ local Title =
                 1,
 
             Text =
-                "ZYNTRIX PRIME",
+                "ZYNTRIX-PRIME-VIP",
 
             TextColor3 =
                 WHITE,
@@ -618,7 +618,7 @@ local Subtitle =
                 1,
 
             Text =
-                "FURINA GLASS INTERFACE • UI ONLY",
+                "Zyntrix-Vn",
 
             TextColor3 =
                 SOFT,
