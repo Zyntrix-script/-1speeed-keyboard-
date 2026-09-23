@@ -1,2696 +1,2695 @@
---[[==============================================================
-    MOBILE CONTROL SUITE V6
-    FULL MOBILE KEYBOARD
-    TOUCH ONLY - NO MOUSE
-
-    TOTAL: 37 BUTTONS
-
-    MOVEMENT
-    W A S D
-    SPACE SHIFT CTRL
-
-    ACTION
-    E Q F R X C V G
-
-    NUMBERS
-    1 2 3 4 5 6 7 8 9 0
-
-    UI
-    TAB M I P L K
-
-    EXTRA
-    T Y U B N J
-
-    FEATURES
-    • 37 buttons
-    • Touch only
-    • No mouse
-    • Drag
-    • Snap 8px
-    • Screen boundary
-    • Edit Mode
-    • Edit Mode disables all keys
-    • Lock / Unlock
-    • Reset layout
-    • Copy all coordinates
-    • Touch cursor
-    • Cursor size
-    • Settings
-    • Stable button size
-    • Stable coordinates
-==============================================================]]
-
---==============================================================
--- SERVICES
---==============================================================
+--========================================================--
+-- ZYNTRIX PRIME V8
+-- FURINA GLASS UI + RANDOM COLOR SHIFT & TEXT SHINE
+-- UI ONLY • 5 PAGES • MOBILE • DRAGGABLE • RESIZABLE
+--========================================================--
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
 
---==============================================================
--- CONFIG
---==============================================================
 
-local SNAP_SIZE = 8
+--========================================================--
+-- IMAGE IDS
+--========================================================--
 
-local controlsEnabled = true
-local editMode = false
-local layoutLocked = true
+local UI_IMAGE_ID =
+    "rbxthumb://type=Asset&id=18581042440&w=420&h=420"
 
-local cursorSize = 32
+local BACKGROUND_IMAGE_ID =
+    "rbxthumb://type=Asset&id=128941307094234&w=1024&h=1024"
 
-local draggingButton = nil
-local dragStart = nil
-local startPosition = nil
+local MENU_IMAGE_ID =
+    "rbxthumb://type=Asset&id=16033474887&w=420&h=420"
 
-local sliderDragging = false
+local HOME_IMAGE_ID =
+    "rbxthumb://type=Asset&id=125844112624149&w=150&h=150"
 
-local activeMovement = {
-    W = false,
-    A = false,
-    S = false,
-    D = false
-}
-
-local allButtons = {}
-local buttonDefaults = {}
-
---==============================================================
--- CLEAN OLD GUI
---==============================================================
-
-local oldGui =
-    PlayerGui:FindFirstChild("MobileControlSuite")
-
-if oldGui then
-    oldGui:Destroy()
-end
-
-local oldBlur =
-    Lighting:FindFirstChild("MobileControlBlur")
-
-if oldBlur then
-    oldBlur:Destroy()
-end
-
---==============================================================
--- SCREEN GUI
---==============================================================
-
-local ScreenGui =
-    Instance.new("ScreenGui")
-
-ScreenGui.Name =
-    "MobileControlSuite"
-
-ScreenGui.ResetOnSpawn =
-    false
-
-ScreenGui.IgnoreGuiInset =
-    true
-
-ScreenGui.ZIndexBehavior =
-    Enum.ZIndexBehavior.Sibling
-
-ScreenGui.Parent =
-    PlayerGui
-
---==============================================================
--- CONTROL LAYER
---==============================================================
-
-local ControlLayer =
-    Instance.new("Frame")
-
-ControlLayer.Name =
-    "KeyboardLayer"
-
-ControlLayer.Size =
-    UDim2.fromScale(1, 1)
-
-ControlLayer.Position =
-    UDim2.fromScale(0, 0)
-
-ControlLayer.BackgroundTransparency =
-    1
-
-ControlLayer.BorderSizePixel =
-    0
-
-ControlLayer.Parent =
-    ScreenGui
-
---==============================================================
--- SETTINGS BUTTON
---==============================================================
-
-local SettingsBtn =
-    Instance.new("TextButton")
-
-SettingsBtn.Name =
-    "Settings"
-
-SettingsBtn.Size =
-    UDim2.fromOffset(42, 42)
-
-SettingsBtn.Position =
-    UDim2.new(
-        1,
-        -52,
-        0,
-        12
-    )
-
-SettingsBtn.BackgroundColor3 =
-    Color3.fromRGB(
-        25,
-        25,
-        30
-    )
-
-SettingsBtn.BackgroundTransparency =
-    0.2
-
-SettingsBtn.Text =
-    "⚙"
-
-SettingsBtn.TextColor3 =
-    Color3.new(1, 1, 1)
-
-SettingsBtn.TextSize =
-    20
-
-SettingsBtn.Font =
-    Enum.Font.GothamBold
-
-SettingsBtn.AutoButtonColor =
-    false
-
-SettingsBtn.ZIndex =
-    150
-
-SettingsBtn.Parent =
-    ControlLayer
-
-local settingsCorner =
-    Instance.new("UICorner")
-
-settingsCorner.CornerRadius =
-    UDim.new(1, 0)
-
-settingsCorner.Parent =
-    SettingsBtn
-
-local settingsStroke =
-    Instance.new("UIStroke")
-
-settingsStroke.Color =
-    Color3.new(1, 1, 1)
-
-settingsStroke.Transparency =
-    0.72
-
-settingsStroke.Thickness =
-    1
-
-settingsStroke.Parent =
-    SettingsBtn
-
---==============================================================
--- BLUR
---==============================================================
-
-local Blur =
-    Instance.new("BlurEffect")
-
-Blur.Name =
-    "MobileControlBlur"
-
-Blur.Size =
-    0
-
-Blur.Parent =
-    Lighting
-
---==============================================================
--- SETTINGS PANEL
---==============================================================
-
-local Panel =
-    Instance.new("Frame")
-
-Panel.Name =
-    "SettingsPanel"
-
-Panel.Size =
-    UDim2.fromOffset(
-        310,
-        380
-    )
-
-Panel.Position =
-    UDim2.new(
-        0.5,
-        -155,
-        0.5,
-        -190
-    )
-
-Panel.BackgroundColor3 =
-    Color3.fromRGB(
-        15,
-        15,
-        20
-    )
-
-Panel.BackgroundTransparency =
-    0.05
-
-Panel.Visible =
-    false
-
-Panel.ZIndex =
-    200
-
-Panel.Parent =
-    ControlLayer
-
-local panelCorner =
-    Instance.new("UICorner")
-
-panelCorner.CornerRadius =
-    UDim.new(
-        0,
-        16
-    )
-
-panelCorner.Parent =
-    Panel
-
-local panelStroke =
-    Instance.new("UIStroke")
-
-panelStroke.Color =
-    Color3.new(1, 1, 1)
-
-panelStroke.Transparency =
-    0.7
-
-panelStroke.Parent =
-    Panel
-
---==============================================================
--- TITLE
---==============================================================
-
-local Title =
-    Instance.new("TextLabel")
-
-Title.Size =
-    UDim2.new(
-        1,
-        -60,
-        0,
-        45
-    )
-
-Title.Position =
-    UDim2.fromOffset(
-        16,
-        5
-    )
-
-Title.BackgroundTransparency =
-    1
-
-Title.Text =
-    "⚙  Cài đặt bàn phím"
-
-Title.TextColor3 =
-    Color3.new(1, 1, 1)
-
-Title.Font =
-    Enum.Font.GothamBold
-
-Title.TextSize =
-    15
-
-Title.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-Title.ZIndex =
-    201
-
-Title.Parent =
-    Panel
-
---==============================================================
--- CLOSE
---==============================================================
-
-local Close =
-    Instance.new("TextButton")
-
-Close.Size =
-    UDim2.fromOffset(
-        35,
-        35
-    )
-
-Close.Position =
-    UDim2.new(
-        1,
-        -43,
-        0,
-        8
-    )
-
-Close.BackgroundTransparency =
-    1
-
-Close.Text =
-    "✕"
-
-Close.TextColor3 =
-    Color3.fromRGB(
-        190,
-        190,
-        190
-    )
-
-Close.TextSize =
-    17
-
-Close.Font =
-    Enum.Font.GothamBold
-
-Close.ZIndex =
-    201
-
-Close.Parent =
-    Panel
-
---==============================================================
--- PANEL BUTTON
---==============================================================
-
-local function MakePanelButton(text, y)
-
-    local button =
-        Instance.new("TextButton")
-
-    button.Size =
-        UDim2.new(
-            1,
-            -32,
-            0,
-            42
-        )
-
-    button.Position =
-        UDim2.fromOffset(
-            16,
-            y
-        )
-
-    button.BackgroundColor3 =
-        Color3.fromRGB(
-            45,
-            45,
-            52
-        )
-
-    button.Text =
-        text
-
-    button.TextColor3 =
-        Color3.new(1, 1, 1)
-
-    button.Font =
-        Enum.Font.GothamBold
-
-    button.TextSize =
-        12
-
-    button.AutoButtonColor =
-        false
-
-    button.ZIndex =
-        201
-
-    button.Parent =
-        Panel
-
-    local corner =
-        Instance.new("UICorner")
-
-    corner.CornerRadius =
-        UDim.new(
-            0,
-            9
-        )
-
-    corner.Parent =
-        button
-
-    return button
-
-end
-
---==============================================================
--- PANEL BUTTONS
---==============================================================
-
-local LockBtn =
-    MakePanelButton(
-        "🔒  Khóa vị trí",
-        60
-    )
-
-local EditBtn =
-    MakePanelButton(
-        "✎  Chỉnh sửa: TẮT",
-        110
-    )
-
-local ToggleBtn =
-    MakePanelButton(
-        "Phím ảo: BẬT",
-        160
-    )
-
-local ResetBtn =
-    MakePanelButton(
-        "↻  Đặt lại vị trí",
-        210
-    )
-
-local CopyPosBtn =
-    MakePanelButton(
-        "📋  Copy tọa độ 37 nút",
-        260
-    )
-
---==============================================================
--- CURSOR LABEL
---==============================================================
-
-local SliderLabel =
-    Instance.new("TextLabel")
-
-SliderLabel.Size =
-    UDim2.new(
-        1,
-        -32,
-        0,
-        22
-    )
-
-SliderLabel.Position =
-    UDim2.fromOffset(
-        16,
-        312
-    )
-
-SliderLabel.BackgroundTransparency =
-    1
-
-SliderLabel.Text =
-    "Kích thước con trỏ: 52"
-
-SliderLabel.TextColor3 =
-    Color3.fromRGB(
-        205,
-        205,
-        205
-    )
-
-SliderLabel.Font =
-    Enum.Font.Gotham
-
-SliderLabel.TextSize =
-    11
-
-SliderLabel.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-SliderLabel.ZIndex =
-    201
-
-SliderLabel.Parent =
-    Panel
-
---==============================================================
--- SLIDER
---==============================================================
-
-local Slider =
-    Instance.new("Frame")
-
-Slider.Size =
-    UDim2.new(
-        1,
-        -32,
-        0,
-        6
-    )
-
-Slider.Position =
-    UDim2.fromOffset(
-        16,
-        342
-    )
-
-Slider.BackgroundColor3 =
-    Color3.fromRGB(
-        45,
-        45,
-        50
-    )
-
-Slider.ZIndex =
-    201
-
-Slider.Parent =
-    Panel
-
-local sliderCorner =
-    Instance.new("UICorner")
-
-sliderCorner.CornerRadius =
-    UDim.new(
-        1,
-        0
-    )
-
-sliderCorner.Parent =
-    Slider
-
-local Fill =
-    Instance.new("Frame")
-
-Fill.Size =
-    UDim2.new(
-        0.44,
-        0,
-        1,
-        0
-    )
-
-Fill.BackgroundColor3 =
-    Color3.fromRGB(
-        99,
-        102,
-        241
-    )
-
-Fill.ZIndex =
-    202
-
-Fill.Parent =
-    Slider
-
-local fillCorner =
-    Instance.new("UICorner")
-
-fillCorner.CornerRadius =
-    UDim.new(
-        1,
-        0
-    )
-
-fillCorner.Parent =
-    Fill
-
-local Knob =
-    Instance.new("TextButton")
-
-Knob.Size =
-    UDim2.fromOffset(
-        18,
-        18
-    )
-
-Knob.Position =
-    UDim2.new(
-        0.44,
-        -9,
-        0.5,
-        -9
-    )
-
-Knob.BackgroundColor3 =
-    Color3.new(1, 1, 1)
-
-Knob.Text =
+local CONTROL_IMAGE_ID =
     ""
 
-Knob.AutoButtonColor =
-    false
+local ITEMS_IMAGE_ID =
+    ""
 
-Knob.ZIndex =
-    203
+local GAMES_IMAGE_ID =" rbxthumb://type=Asset&id= 1030847042&w=150&h=150"
 
-Knob.Parent =
-    Slider
+    ""
 
-local knobCorner =
-    Instance.new("UICorner")
+local SETTINGS_IMAGE_ID =
+    "rbxthumb://type=Asset&id=9520684025&w=150&h=150"
 
-knobCorner.CornerRadius =
-    UDim.new(
-        1,
-        0
-    )
 
-knobCorner.Parent =
-    Knob
-
---==============================================================
--- SNAP
---==============================================================
-
-local function Snap(value)
-
-    return math.floor(
-        value / SNAP_SIZE + 0.5
-    ) * SNAP_SIZE
-
-end
-
---==============================================================
--- DEFAULT POSITION
---==============================================================
-
-local function SaveDefault(button)
-
-    buttonDefaults[button] = {
-
-        Position =
-            button.Position,
-
-        Size =
-            button.Size
-
-    }
-
-end
-
---==============================================================
--- INTERNAL EVENT
---==============================================================
-
-local VirtualKeyEvent =
-    Instance.new("BindableEvent")
-
-VirtualKeyEvent.Name =
-    "VirtualKeyEvent"
-
-VirtualKeyEvent.Parent =
-    ScreenGui
-
---==============================================================
--- KEY CODES
---==============================================================
-
-local KeyCodes = {
-
-    W = Enum.KeyCode.W,
-    A = Enum.KeyCode.A,
-    S = Enum.KeyCode.S,
-    D = Enum.KeyCode.D,
-
-    SPACE = Enum.KeyCode.Space,
-    SHIFT = Enum.KeyCode.LeftShift,
-    CTRL = Enum.KeyCode.LeftControl,
-
-    E = Enum.KeyCode.E,
-    Q = Enum.KeyCode.Q,
-    F = Enum.KeyCode.F,
-    R = Enum.KeyCode.R,
-
-    X = Enum.KeyCode.X,
-    C = Enum.KeyCode.C,
-    V = Enum.KeyCode.V,
-    G = Enum.KeyCode.G,
-
-    ["1"] = Enum.KeyCode.One,
-    ["2"] = Enum.KeyCode.Two,
-    ["3"] = Enum.KeyCode.Three,
-    ["4"] = Enum.KeyCode.Four,
-    ["5"] = Enum.KeyCode.Five,
-    ["6"] = Enum.KeyCode.Six,
-    ["7"] = Enum.KeyCode.Seven,
-    ["8"] = Enum.KeyCode.Eight,
-    ["9"] = Enum.KeyCode.Nine,
-    ["0"] = Enum.KeyCode.Zero,
-
-    TAB = Enum.KeyCode.Tab,
-
-    M = Enum.KeyCode.M,
-    I = Enum.KeyCode.I,
-    P = Enum.KeyCode.P,
-    L = Enum.KeyCode.L,
-    K = Enum.KeyCode.K,
-
-    T = Enum.KeyCode.T,
-    Y = Enum.KeyCode.Y,
-    U = Enum.KeyCode.U,
-    B = Enum.KeyCode.B,
-    N = Enum.KeyCode.N,
-    J = Enum.KeyCode.J
-}
-
---==============================================================
--- VIRTUAL INPUT
---==============================================================
-
-local VirtualInputManager
+--========================================================--
+-- REMOVE OLD UI
+--========================================================--
 
 pcall(function()
 
-    VirtualInputManager =
-        game:GetService(
-            "VirtualInputManager"
-        )
+    local CoreGui = game:GetService("CoreGui")
+
+    local old = CoreGui:FindFirstChild(
+        "ZYNTRIX_PRIME_FURINA_V8"
+    )
+
+    if old then
+        old:Destroy()
+    end
 
 end)
 
---==============================================================
--- SEND VIRTUAL KEY
---==============================================================
 
-local function SendVirtualKey(
-    key,
-    state
-)
+--========================================================--
+-- COLORS
+--========================================================--
 
-    if editMode then
-        return
-    end
+local BG =
+    Color3.fromRGB(5,10,18)
 
-    if not controlsEnabled then
-        return
-    end
+local BG2 =
+    Color3.fromRGB(7,18,29)
 
-    local keyCode =
-        KeyCodes[key]
+local PANEL =
+    Color3.fromRGB(9,18,29)
 
-    if not keyCode then
-        return
-    end
+local CARD =
+    Color3.fromRGB(13,28,42)
 
-    if VirtualInputManager then
+local CARD2 =
+    Color3.fromRGB(17,35,51)
+
+local WHITE =
+    Color3.fromRGB(240,250,255)
+
+local SOFT =
+    Color3.fromRGB(183,211,222)
+
+local MUTED =
+    Color3.fromRGB(103,143,158)
+
+local CYAN =
+    Color3.fromRGB(77,224,255)
+
+local AQUA =
+    Color3.fromRGB(55,187,218)
+
+local BLUE =
+    Color3.fromRGB(71,126,211)
+
+local PURPLE =
+    Color3.fromRGB(139,105,210)
+
+local FURINA =
+    Color3.fromRGB(111,207,236)
+
+local GREEN =
+    Color3.fromRGB(91,224,165)
+
+local BORDER =
+    Color3.fromRGB(40,78,94)
+
+local DEEPBLUE =
+    Color3.fromRGB(30,70,115)
+
+
+--========================================================--
+-- HELPERS
+--========================================================--
+
+local function New(className, parent, props)
+
+    local obj =
+        Instance.new(className)
+
+    for property, value in pairs(props or {}) do
 
         pcall(function()
-
-            VirtualInputManager:SendKeyEvent(
-                state,
-                keyCode,
-                false,
-                game
-            )
-
+            obj[property] = value
         end)
 
     end
 
-    VirtualKeyEvent:Fire(
-        key,
-        state
-    )
+    obj.Parent = parent
+
+    return obj
 
 end
 
---==============================================================
--- PRESS KEY
---==============================================================
 
-local function PressKey(
-    key,
-    state
-)
+local function Corner(parent, radius)
 
-    if editMode then
-        return
-    end
-
-    if not controlsEnabled then
-        return
-    end
-
-    SendVirtualKey(
-        key,
-        state
-    )
-
-    --==========================================================
-    -- MOVEMENT STATE
-    --==========================================================
-
-    if activeMovement[key] ~= nil then
-
-        activeMovement[key] =
-            state
-
-    end
-
-    --==========================================================
-    -- SPACE
-    --==========================================================
-
-    if key == "SPACE"
-        and state then
-
-        local character =
-            Player.Character
-
-        local humanoid =
-            character
-            and
-            character:FindFirstChildOfClass(
-                "Humanoid"
-            )
-
-        if humanoid then
-            humanoid.Jump = true
-        end
-
-    end
-
-    --==========================================================
-    -- SHIFT
-    --==========================================================
-
-    if key == "SHIFT" then
-
-        local character =
-            Player.Character
-
-        local humanoid =
-            character
-            and
-            character:FindFirstChildOfClass(
-                "Humanoid"
-            )
-
-        if humanoid then
-
-            if state then
-
-                humanoid.WalkSpeed =
-                    24
-
-            else
-
-                humanoid.WalkSpeed =
-                    16
-
-            end
-
-        end
-
-    end
+    return New("UICorner", parent, {
+        CornerRadius =
+            UDim.new(0,radius or 10)
+    })
 
 end
 
---==============================================================
--- TEXT SIZE
---==============================================================
 
-local function GetTextSize(key)
+local function Stroke(
+    parent,
+    color,
+    transparency,
+    thickness
+)
 
-    if key == "SPACE" then
-        return 11
-    end
+    return New("UIStroke", parent, {
 
-    if key == "SHIFT"
-        or key == "CTRL" then
+        Color =
+            color or BORDER,
 
-        return 9
+        Transparency =
+            transparency or 0,
 
-    end
+        Thickness =
+            thickness or 1
 
-    if key == "TAB" then
-        return 10
-    end
-
-    return 12
+    })
 
 end
 
---==============================================================
--- SAFE POSITION
---==============================================================
 
-local function SafePosition(
-    position,
-    size
+local function Gradient(
+    parent,
+    colors,
+    rotation
 )
 
-    local viewport =
-        ControlLayer.AbsoluteSize
+    local gradient =
+        New("UIGradient", parent, {
+            Rotation = rotation or 0
+        })
 
-    local screenW =
-        viewport.X
+    local points = {}
 
-    local screenH =
-        viewport.Y
+    for i,color in ipairs(colors) do
 
-    local width =
-        size.X.Offset
-
-    local height =
-        size.Y.Offset
-
-    local x
-    local y
-
-    if position.X.Scale ~= 0 then
-
-        x =
-            screenW *
-            position.X.Scale +
-            position.X.Offset
-
-    else
-
-        x =
-            position.X.Offset
-
-    end
-
-    if position.Y.Scale ~= 0 then
-
-        y =
-            screenH *
-            position.Y.Scale +
-            position.Y.Offset
-
-    else
-
-        y =
-            position.Y.Offset
-
-    end
-
-    x =
-        math.clamp(
-            x,
-            0,
-            math.max(
-                0,
-                screenW - width
+        table.insert(
+            points,
+            ColorSequenceKeypoint.new(
+                (i-1) /
+                math.max(#colors-1,1),
+                color
             )
         )
 
-    y =
-        math.clamp(
-            y,
-            0,
-            math.max(
-                0,
-                screenH - height
-            )
-        )
+    end
 
-    return UDim2.fromOffset(
-        Snap(x),
-        Snap(y)
-    )
+    gradient.Color =
+        ColorSequence.new(points)
+
+    return gradient
 
 end
 
---==============================================================
--- CREATE KEY
---==============================================================
 
-local function CreateKey(
-    key,
-    position,
-    size
+local function Tween(
+    object,
+    time,
+    properties,
+    style,
+    direction
 )
 
-    local button =
-        Instance.new("TextButton")
-
-    button.Name =
-        "Key_" .. key
-
-    local normalSize =
-        size or
-        UDim2.fromOffset(
-            42,
-            42
+    local info =
+        TweenInfo.new(
+            time,
+            style or Enum.EasingStyle.Quad,
+            direction or Enum.EasingDirection.Out
         )
 
-    button.Size =
-        normalSize
-
-    button.Position =
-        SafePosition(
-            position,
-            normalSize
-        )
-
-    button.BackgroundColor3 =
-        Color3.fromRGB(
-            25,
-            25,
-            30
-        )
-
-    button.BackgroundTransparency =
-        0.25
-
-    button.Text =
-        key
-
-    button.TextColor3 =
-        Color3.new(
-            1,
-            1,
-            1
-        )
-
-    button.Font =
-        Enum.Font.GothamBold
-
-    button.TextSize =
-        GetTextSize(key)
-
-    button.TextScaled =
-        false
-
-    button.TextWrapped =
-        false
-
-    button.AutoButtonColor =
-        false
-
-    button.Active =
-        true
-
-    button.Selectable =
-        false
-
-    button.ZIndex =
-        2
-
-    button.Parent =
-        ControlLayer
-
-    --==========================================================
-    -- CORNER
-    --==========================================================
-
-    local corner =
-        Instance.new("UICorner")
-
-    corner.CornerRadius =
-        UDim.new(
-            key == "SPACE"
-                and 0.25
-                or 0.18,
-            0
-        )
-
-    corner.Parent =
-        button
-
-    --==========================================================
-    -- STROKE
-    --==========================================================
-
-    local stroke =
-        Instance.new("UIStroke")
-
-    stroke.Color =
-        Color3.new(
-            1,
-            1,
-            1
-        )
-
-    stroke.Transparency =
-        0.72
-
-    stroke.Thickness =
-        1
-
-    stroke.Parent =
-        button
-
-    allButtons[key] =
-        button
-
-    SaveDefault(button)
-
-    --==========================================================
-    -- TOUCH BEGIN
-    --==========================================================
-
-    button.InputBegan:Connect(
-        function(input)
-
-            if input.UserInputType
-                ~= Enum.UserInputType.Touch then
-
-                return
-
-            end
-
-            --==================================================
-            -- EDIT MODE
-            --==================================================
-
-            if editMode then
-
-                if not layoutLocked then
-
-                    draggingButton =
-                        button
-
-                    dragStart =
-                        input.Position
-
-                    startPosition =
-                        button.Position
-
-                    button.ZIndex =
-                        100
-
-                    button.BackgroundTransparency =
-                        0.05
-
-                end
-
-                return
-
-            end
-
-            --==================================================
-            -- NORMAL MODE
-            --==================================================
-
-            if not controlsEnabled then
-                return
-            end
-
-            PressKey(
-                key,
-                true
-            )
-
-            button.BackgroundTransparency =
-                0.05
-
-        end
-    )
-
-    --==========================================================
-    -- TOUCH END
-    --==========================================================
-
-    button.InputEnded:Connect(
-        function(input)
-
-            if input.UserInputType
-                ~= Enum.UserInputType.Touch then
-
-                return
-
-            end
-
-            if draggingButton == button then
-
-                -- Don't release key in edit mode
-                EndDrag()
-
-                return
-
-            end
-
-            if editMode then
-                return
-            end
-
-            if not controlsEnabled then
-                return
-            end
-
-            PressKey(
-                key,
-                false
-            )
-
-            button.BackgroundTransparency =
-                0.25
-
-        end
-    )
-
-    return button
-
-end
-
---==============================================================
--- EXACT V6 COORDINATES
---==============================================================
-
-local ButtonCoordinates = {
-
-    --==========================================================
-    -- MOVEMENT
-    --==========================================================
-
-    W = {
-        XScale = 0,
-        XOffset = 88,
-        YScale = 1,
-        YOffset = -168,
-        Width = 42,
-        Height = 42
-    },
-
-    A = {
-        XScale = 0,
-        XOffset = 32,
-        YScale = 1,
-        YOffset = -112,
-        Width = 42,
-        Height = 42
-    },
-
-    S = {
-        XScale = 0,
-        XOffset = 88,
-        YScale = 1,
-        YOffset = -56,
-        Width = 42,
-        Height = 42
-    },
-
-    D = {
-        XScale = 0,
-        XOffset = 144,
-        YScale = 1,
-        YOffset = -112,
-        Width = 42,
-        Height = 42
-    },
-
-    SPACE = {
-        XScale = 0,
-        XOffset = 576,
-        YScale = 1,
-        YOffset = -112,
-        Width = 160,
-        Height = 40
-    },
-
-    SHIFT = {
-        XScale = 0,
-        XOffset = 680,
-        YScale = 1,
-        YOffset = -240,
-        Width = 60,
-        Height = 36
-    },
-
-    CTRL = {
-        XScale = 0,
-        XOffset = 680,
-        YScale = 1,
-        YOffset = -192,
-        Width = 60,
-        Height = 36
-    },
-
-    --==========================================================
-    -- ACTION
-    --==========================================================
-
-    E = {
-        XScale = 0,
-        XOffset = 576,
-        YScale = 1,
-        YOffset = -192,
-        Width = 42,
-        Height = 42
-    },
-
-    Q = {
-        XScale = 0,
-        XOffset = 256,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    F = {
-        XScale = 0,
-        XOffset = 624,
-        YScale = 1,
-        YOffset = -192,
-        Width = 42,
-        Height = 42
-    },
-
-    R = {
-        XScale = 0,
-        XOffset = 208,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    X = {
-        XScale = 0,
-        XOffset = 16,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    C = {
-        XScale = 0,
-        XOffset = 64,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    V = {
-        XScale = 0,
-        XOffset = 160,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    G = {
-        XScale = 0,
-        XOffset = 112,
-        YScale = 1,
-        YOffset = -304,
-        Width = 42,
-        Height = 42
-    },
-
-    --==========================================================
-    -- NUMBERS
-    --==========================================================
-
-    ["1"] = {
-        XScale = 0,
-        XOffset = 448,
-        YScale = 0,
-        YOffset = 56,
-        Width = 40,
-        Height = 38
-    },
-
-    ["2"] = {
-        XScale = 0,
-        XOffset = 488,
-        YScale = 0,
-        YOffset = 56,
-        Width = 40,
-        Height = 38
-    },
-
-    ["3"] = {
-        XScale = 0,
-        XOffset = 528,
-        YScale = 0,
-        YOffset = 56,
-        Width = 40,
-        Height = 38
-    },
-
-    ["4"] = {
-        XScale = 0,
-        XOffset = 568,
-        YScale = 0,
-        YOffset = 56,
-        Width = 40,
-        Height = 38
-    },
-
-    ["5"] = {
-        XScale = 0,
-        XOffset = 608,
-        YScale = 0,
-        YOffset = 56,
-        Width = 40,
-        Height = 38
-    },
-
-    ["6"] = {
-        XScale = 0,
-        XOffset = 608,
-        YScale = 0,
-        YOffset = 96,
-        Width = 40,
-        Height = 38
-    },
-
-    ["7"] = {
-        XScale = 0,
-        XOffset = 568,
-        YScale = 0,
-        YOffset = 96,
-        Width = 40,
-        Height = 38
-    },
-
-    ["8"] = {
-        XScale = 0,
-        XOffset = 528,
-        YScale = 0,
-        YOffset = 96,
-        Width = 40,
-        Height = 38
-    },
-
-    ["9"] = {
-        XScale = 0,
-        XOffset = 488,
-        YScale = 0,
-        YOffset = 96,
-        Width = 40,
-        Height = 38
-    },
-
-    ["0"] = {
-        XScale = 0,
-        XOffset = 764,
-        YScale = 0,
-        YOffset = 60,
-        Width = 40,
-        Height = 38
-    },
-
-    --==========================================================
-    -- UI
-    --==========================================================
-
-    TAB = {
-        XScale = 1,
-        XOffset = -344,
-        YScale = 0,
-        YOffset = 56,
-        Width = 45,
-        Height = 38
-    },
-
-    M = {
-        XScale = 1,
-        XOffset = -728,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    I = {
-        XScale = 1,
-        XOffset = -584,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    P = {
-        XScale = 1,
-        XOffset = -680,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    L = {
-        XScale = 1,
-        XOffset = -632,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    K = {
-        XScale = 1,
-        XOffset = -392,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    --==========================================================
-    -- EXTRA
-    --==========================================================
-
-    T = {
-        XScale = 1,
-        XOffset = -536,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    Y = {
-        XScale = 1,
-        XOffset = -440,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    U = {
-        XScale = 1,
-        XOffset = -344,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    B = {
-        XScale = 1,
-        XOffset = -488,
-        YScale = 0,
-        YOffset = 96,
-        Width = 45,
-        Height = 38
-    },
-
-    N = {
-        XScale = 1,
-        XOffset = -440,
-        YScale = 0,
-        YOffset = 56,
-        Width = 45,
-        Height = 38
-    },
-
-    J = {
-        XScale = 1,
-        XOffset = -392,
-        YScale = 0,
-        YOffset = 56,
-        Width = 45,
-        Height = 38
-    }
-}
-
---==============================================================
--- ORDER
---==============================================================
-
-local OrderedKeys = {
-
-    "W",
-    "A",
-    "S",
-    "D",
-
-    "SPACE",
-    "SHIFT",
-    "CTRL",
-
-    "E",
-    "Q",
-    "F",
-    "R",
-    "X",
-    "C",
-    "V",
-    "G",
-
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "0",
-
-    "TAB",
-    "M",
-    "I",
-    "P",
-    "L",
-    "K",
-
-    "T",
-    "Y",
-    "U",
-    "B",
-    "N",
-    "J"
-}
-
---==============================================================
--- CREATE 37 BUTTONS
---==============================================================
-
-for _, key in ipairs(
-    OrderedKeys
-) do
-
-    local data =
-        ButtonCoordinates[key]
-
-    if data then
-
-        CreateKey(
-
-            key,
-
-            UDim2.new(
-
-                data.XScale,
-                data.XOffset,
-
-                data.YScale,
-                data.YOffset
-
-            ),
-
-            UDim2.fromOffset(
-
-                data.Width,
-                data.Height
-
-            )
-
-        )
-
-    end
-
-end
-
---==============================================================
--- MOVEMENT ENGINE
---==============================================================
-
-RunService.RenderStepped:Connect(
-    function()
-
-        if not controlsEnabled then
-            return
-        end
-
-        if editMode then
-            return
-        end
-
-        local character =
-            Player.Character
-
-        local humanoid =
-            character
-            and
-            character:FindFirstChildOfClass(
-                "Humanoid"
-            )
-
-        if not humanoid then
-            return
-        end
-
-        local move =
-            Vector3.zero
-
-        if activeMovement.W then
-
-            move += Vector3.new(
-                0,
-                0,
-                -1
-            )
-
-        end
-
-        if activeMovement.S then
-
-            move += Vector3.new(
-                0,
-                0,
-                1
-            )
-
-        end
-
-        if activeMovement.A then
-
-            move += Vector3.new(
-                -1,
-                0,
-                0
-            )
-
-        end
-
-        if activeMovement.D then
-
-            move += Vector3.new(
-                1,
-                0,
-                0
-            )
-
-        end
-
-        humanoid:Move(
-            move,
-            true
-        )
-
-    end
-)
-
---==============================================================
--- GLOBAL TOUCH DRAG
---==============================================================
-
-UIS.InputChanged:Connect(
-    function(input)
-
-        if not draggingButton then
-            return
-        end
-
-        if input.UserInputType
-            == Enum.UserInputType.Touch then
-
-            UpdateDrag(input)
-
-        end
-
-    end
-)
-
---==============================================================
--- END GLOBAL DRAG
---==============================================================
-
-UIS.InputEnded:Connect(
-    function(input)
-
-        if draggingButton
-            and
-            input.UserInputType
-                == Enum.UserInputType.Touch then
-
-            EndDrag()
-
-        end
-
-    end
-)
-
---==============================================================
--- LOCK
---==============================================================
-
-LockBtn.Activated:Connect(
-    function()
-
-        if not editMode then
-            return
-        end
-
-        layoutLocked =
-            not layoutLocked
-
-        EndDrag()
-
-        if layoutLocked then
-
-            LockBtn.Text =
-                "🔒  Khóa vị trí"
-
-            LockBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    45,
-                    45,
-                    52
-                )
-
-        else
-
-            LockBtn.Text =
-                "🔓  Mở khóa vị trí"
-
-            LockBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    99,
-                    102,
-                    241
-                )
-
-        end
-
-    end
-)
-
---==============================================================
--- EDIT MODE
---==============================================================
-
-EditBtn.Activated:Connect(
-    function()
-
-        editMode =
-            not editMode
-
-        EndDrag()
-
-        activeMovement.W = false
-        activeMovement.A = false
-        activeMovement.S = false
-        activeMovement.D = false
-
-        if editMode then
-
-            --==================================================
-            -- EDIT ON
-            --==================================================
-
-            controlsEnabled =
-                false
-
-            layoutLocked =
-                false
-
-            EditBtn.Text =
-                "✎  Chỉnh sửa: BẬT"
-
-            EditBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    99,
-                    102,
-                    241
-                )
-
-            LockBtn.Text =
-                "🔓  Mở khóa vị trí"
-
-            LockBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    99,
-                    102,
-                    241
-                )
-
-            for _, button in pairs(
-                allButtons
-            ) do
-
-                button.Visible =
-                    true
-
-                button.BackgroundColor3 =
-                    Color3.fromRGB(
-                        45,
-                        45,
-                        55
-                    )
-
-                button.TextTransparency =
-                    0.1
-
-            end
-
-        else
-
-            --==================================================
-            -- EDIT OFF
-            --==================================================
-
-            controlsEnabled =
-                true
-
-            layoutLocked =
-                true
-
-            EditBtn.Text =
-                "✎  Chỉnh sửa: TẮT"
-
-            EditBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    45,
-                    45,
-                    52
-                )
-
-            LockBtn.Text =
-                "🔒  Khóa vị trí"
-
-            LockBtn.BackgroundColor3 =
-                Color3.fromRGB(
-                    45,
-                    45,
-                    52
-                )
-
-            for _, button in pairs(
-                allButtons
-            ) do
-
-                button.Visible =
-                    true
-
-                button.BackgroundColor3 =
-                    Color3.fromRGB(
-                        25,
-                        25,
-                        30
-                    )
-
-                button.TextTransparency =
-                    0
-
-            end
-
-        end
-
-    end
-)
-
---==============================================================
--- ENABLE / DISABLE
---==============================================================
-
-ToggleBtn.Activated:Connect(
-    function()
-
-        if editMode then
-            return
-        end
-
-        controlsEnabled =
-            not controlsEnabled
-
-        for _, button in pairs(
-            allButtons
-        ) do
-
-            button.Visible =
-                controlsEnabled
-
-        end
-
-        ToggleBtn.Text =
-            controlsEnabled
-            and
-            "Phím ảo: BẬT"
-            or
-            "Phím ảo: TẮT"
-
-        ToggleBtn.BackgroundColor3 =
-            controlsEnabled
-
-            and
-            Color3.fromRGB(
-                99,
-                102,
-                241
-            )
-
-            or
-            Color3.fromRGB(
-                45,
-                45,
-                52
-            )
-
-        activeMovement.W = false
-        activeMovement.A = false
-        activeMovement.S = false
-        activeMovement.D = false
-
-        EndDrag()
-
-    end
-)
-
---==============================================================
--- RESET
---==============================================================
-
-ResetBtn.Activated:Connect(
-    function()
-
-        EndDrag()
-
-        for button, data in pairs(
-            buttonDefaults
-        ) do
-
-            if button
-                and
-                button.Parent then
-
-                button.Size =
-                    data.Size
-
-                button.Position =
-                    SafePosition(
-                        data.Position,
-                        data.Size
-                    )
-
-            end
-
-        end
-
-    end
-)
-
---==============================================================
--- GET COORDINATES
---==============================================================
-
-local function GetButtonCoordinates()
-
-    local output = {}
-
-    table.insert(
-        output,
-        "-- MOBILE CONTROL SUITE V6"
-    )
-
-    table.insert(
-        output,
-        "-- TOTAL: 37 BUTTONS"
-    )
-
-    table.insert(
-        output,
-        ""
-    )
-
-    for _, key in ipairs(
-        OrderedKeys
-    ) do
-
-        local button =
-            allButtons[key]
-
-        if button
-            and
-            button.Parent then
-
-            local pos =
-                button.Position
-
-            local size =
-                button.Size
-
-            table.insert(
-
-                output,
-
-                string.format(
-
-                    '%s = {\n' ..
-                    '    XScale = %.4f,\n' ..
-                    '    XOffset = %d,\n' ..
-                    '    YScale = %.4f,\n' ..
-                    '    YOffset = %d,\n' ..
-                    '    Width = %d,\n' ..
-                    '    Height = %d\n' ..
-                    '},',
-
-                    key,
-
-                    pos.X.Scale,
-                    pos.X.Offset,
-
-                    pos.Y.Scale,
-                    pos.Y.Offset,
-
-                    size.X.Offset,
-                    size.Y.Offset
-
-                )
-
-            )
-
-        end
-
-    end
-
-    return table.concat(
-        output,
-        "\n"
-    )
-
-end
-
---==============================================================
--- CLIPBOARD
---==============================================================
-
-local function CopyClipboard(text)
-
-    if setclipboard then
-
-        local success =
-            pcall(
-                function()
-
-                    setclipboard(
-                        text
-                    )
-
-                end
-            )
-
-        if success then
-            return true
-        end
-
-    end
-
-    if toclipboard then
-
-        local success =
-            pcall(
-                function()
-
-                    toclipboard(
-                        text
-                    )
-
-                end
-            )
-
-        if success then
-            return true
-        end
-
-    end
-
-    return false
-
-end
-
---==============================================================
--- COPY COORDINATES
---==============================================================
-
-CopyPosBtn.Activated:Connect(
-    function()
-
-        local data =
-            GetButtonCoordinates()
-
-        local copied =
-            CopyClipboard(
-                data
-            )
-
-        if copied then
-
-            CopyPosBtn.Text =
-                "✅ Đã copy 37 tọa độ"
-
-            task.delay(
-                1.5,
-                function()
-
-                    if CopyPosBtn.Parent then
-
-                        CopyPosBtn.Text =
-                            "📋  Copy tọa độ 37 nút"
-
-                    end
-
-                end
-            )
-
-        else
-
-            warn(
-                "===== MOBILE CONTROL SUITE V6 ====="
-            )
-
-            warn(data)
-
-            CopyPosBtn.Text =
-                "⚠️ Clipboard không hỗ trợ"
-
-            task.delay(
-                2,
-                function()
-
-                    if CopyPosBtn.Parent then
-
-                        CopyPosBtn.Text =
-                            "📋  Copy tọa độ 37 nút"
-
-                    end
-
-                end
-            )
-
-        end
-
-    end
-)
-
---==============================================================
--- SETTINGS OPEN
---==============================================================
-
-SettingsBtn.Activated:Connect(
-    function()
-
-        Panel.Visible =
-            true
-
+    local tween =
         TweenService:Create(
-
-            Blur,
-
-            TweenInfo.new(
-                0.2
-            ),
-
-            {
-                Size = 10
-            }
-
-        ):Play()
-
-    end
-)
-
---==============================================================
--- SETTINGS CLOSE
---==============================================================
-
-Close.Activated:Connect(
-    function()
-
-        Panel.Visible =
-            false
-
-        TweenService:Create(
-
-            Blur,
-
-            TweenInfo.new(
-                0.2
-            ),
-
-            {
-                Size = 0
-            }
-
-        ):Play()
-
-    end
-)
-
---==============================================================
--- CURSOR
---==============================================================
-
-local cursor = nil
-
-local function UpdateCursor(
-    position
-)
-
-    if not controlsEnabled
-        and
-        not editMode then
-
-        return
-    end
-
-    if not cursor then
-
-        cursor =
-            Instance.new(
-                "ImageLabel"
-            )
-
-        cursor.Name =
-            "TouchCursor"
-
-        cursor.BackgroundTransparency =
-            1
-
-        cursor.ZIndex =
-            500
-
-        cursor.Image =
-            "rbxthumb://type=Asset&id=12570006449&w=420&h=420"
-
-        cursor.Parent =
-            ControlLayer
-
-    end
-
-    cursor.Size =
-        UDim2.fromOffset(
-            cursorSize,
-            cursorSize
+            object,
+            info,
+            properties
         )
 
-    cursor.Position =
-        UDim2.fromOffset(
+    tween:Play()
 
-            position.X -
-            cursorSize / 2,
-
-            position.Y -
-            cursorSize / 2
-
-        )
+    return tween
 
 end
 
---==============================================================
--- CURSOR TOUCH BEGIN
---==============================================================
 
-UIS.InputBegan:Connect(
-    function(input)
+--========================================================--
+-- SCREEN GUI
+--========================================================--
 
-        if input.UserInputType
-            == Enum.UserInputType.Touch then
+local ScreenGui =
+    New(
+        "ScreenGui",
+        game.CoreGui,
+        {
+            Name =
+                "ZYNTRIX_PRIME_FURINA_V8",
 
-            UpdateCursor(
-                input.Position
-            )
+            ResetOnSpawn =
+                false,
 
-        end
+            IgnoreGuiInset =
+                true,
 
-    end
-)
+            ZIndexBehavior =
+                Enum.ZIndexBehavior.Sibling
+        }
+    )
 
---==============================================================
--- CURSOR TOUCH MOVE
---==============================================================
 
-UIS.InputChanged:Connect(
-    function(input)
+--========================================================--
+-- MAIN
+--========================================================--
 
-        if input.UserInputType
-            == Enum.UserInputType.Touch then
+local Main =
+    New(
+        "Frame",
+        ScreenGui,
+        {
+            Name =
+                "Main",
 
-            UpdateCursor(
-                input.Position
-            )
-
-        end
-
-    end
-)
-
---==============================================================
--- CURSOR SLIDER BEGIN
---==============================================================
-
-Knob.InputBegan:Connect(
-    function(input)
-
-        if input.UserInputType
-            == Enum.UserInputType.Touch then
-
-            sliderDragging =
-                true
-
-        end
-
-    end
-)
-
---==============================================================
--- CURSOR SLIDER MOVE
---==============================================================
-
-UIS.InputChanged:Connect(
-    function(input)
-
-        if not sliderDragging then
-            return
-        end
-
-        if input.UserInputType
-            ~= Enum.UserInputType.Touch then
-
-            return
-        end
-
-        local x =
-            math.clamp(
-
-                (
-                    input.Position.X -
-                    Slider.AbsolutePosition.X
-                )
-                /
-                Slider.AbsoluteSize.X,
-
-                0,
-                1
-
-            )
-
-        Fill.Size =
-            UDim2.new(
-                x,
-                0,
-                1,
-                0
-            )
-
-        Knob.Position =
-            UDim2.new(
-                x,
-                -9,
-                0.5,
-                -9
-            )
-
-        cursorSize =
-            math.floor(
-                30 +
-                x * 50
-            )
-
-        SliderLabel.Text =
-            "Kích thước con trỏ: "
-            ..
-            tostring(
-                cursorSize
-            )
-
-        if cursor then
-
-            cursor.Size =
+            Size =
                 UDim2.fromOffset(
-                    cursorSize,
-                    cursorSize
-                )
+                    600,
+                    370
+                ),
+
+            Position =
+                UDim2.new(
+                    0.5,
+                    -300,
+                    0.5,
+                    -185
+                ),
+
+            BackgroundColor3 =
+                BG,
+
+            BackgroundTransparency =
+                0.04,
+
+            BorderSizePixel =
+                0,
+
+            ClipsDescendants =
+                true,
+
+            Active =
+                true,
+
+            ZIndex =
+                1
+        }
+    )
+
+
+Corner(Main,18)
+
+Stroke(
+    Main,
+    BORDER,
+    0.15,
+    1
+)
+
+
+--========================================================--
+-- BACKGROUND
+--========================================================--
+
+local Background =
+    New(
+        "ImageLabel",
+        Main,
+        {
+            Name =
+                "Background",
+
+            Size =
+                UDim2.fromScale(
+                    1,
+                    1
+                ),
+
+            Position =
+                UDim2.fromScale(
+                    0,
+                    0
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Image =
+                BACKGROUND_IMAGE_ID,
+
+            ImageTransparency =
+                0.48,
+
+            ImageColor3 =
+                Color3.fromRGB(
+                    175,
+                    225,
+                    245
+                ),
+
+            ScaleType =
+                Enum.ScaleType.Crop,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                2
+        }
+    )
+
+
+Corner(Background,18)
+
+
+local BackgroundTint =
+    New(
+        "Frame",
+        Main,
+        {
+            Size =
+                UDim2.fromScale(
+                    1,
+                    1
+                ),
+
+            BackgroundColor3 =
+                BG2,
+
+            BackgroundTransparency =
+                0.46,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                3
+        }
+    )
+
+
+Corner(BackgroundTint,18)
+
+
+local Glass =
+    New(
+        "Frame",
+        Main,
+        {
+            Size =
+                UDim2.fromScale(
+                    1,
+                    1
+                ),
+
+            BackgroundColor3 =
+                BG,
+
+            BackgroundTransparency =
+                0.58,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                4
+        }
+    )
+
+
+Corner(Glass,18)
+
+
+--========================================================--
+-- TOP BAR
+--========================================================--
+
+local Top =
+    New(
+        "Frame",
+        Main,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    0,
+                    0,
+                    64
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    0,
+                    0
+                ),
+
+            BackgroundColor3 =
+                PANEL,
+
+            BackgroundTransparency =
+                0.20,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                10
+        }
+    )
+
+
+--========================================================--
+-- LOGO
+--========================================================--
+
+local LogoBox =
+    New(
+        "Frame",
+        Top,
+        {
+            Size =
+                UDim2.fromOffset(
+                    42,
+                    42
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    14,
+                    10
+                ),
+
+            BackgroundColor3 =
+                CARD,
+
+            BackgroundTransparency =
+                0.08,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                12
+        }
+    )
+
+
+Corner(LogoBox,12)
+
+Stroke(
+    LogoBox,
+    CYAN,
+    0.35,
+    1
+)
+
+
+local Logo =
+    New(
+        "ImageLabel",
+        LogoBox,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -8,
+                    1,
+                    -8
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    4,
+                    4
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Image =
+                UI_IMAGE_ID,
+
+            ImageTransparency =
+                0,
+
+            ScaleType =
+                Enum.ScaleType.Crop,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                13
+        }
+    )
+
+
+Corner(Logo,9)
+
+
+--========================================================--
+-- TITLE
+--========================================================--
+
+local Title =
+    New(
+        "TextLabel",
+        Top,
+        {
+            Size =
+                UDim2.fromOffset(
+                    330,
+                    25
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    68,
+                    8
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                "ZYNTRIX PRIME",
+
+            TextColor3 =
+                WHITE,
+
+            Font =
+                Enum.Font.GothamBold,
+
+            TextSize =
+                20,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            ZIndex =
+                12
+        }
+    )
+
+
+local Subtitle =
+    New(
+        "TextLabel",
+        Top,
+        {
+            Size =
+                UDim2.fromOffset(
+                    340,
+                    18
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    69,
+                    33
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                "FURINA GLASS INTERFACE • UI ONLY",
+
+            TextColor3 =
+                SOFT,
+
+            Font =
+                Enum.Font.Gotham,
+
+            TextSize =
+                8,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            ZIndex =
+                12
+        }
+    )
+
+
+--========================================================--
+-- STATUS
+--========================================================--
+
+local Status =
+    New(
+        "Frame",
+        Top,
+        {
+            Size =
+                UDim2.fromOffset(
+                    90,
+                    28
+                ),
+
+            Position =
+                UDim2.new(
+                    1,
+                    -134,
+                    0,
+                    17
+                ),
+
+            BackgroundColor3 =
+                CARD,
+
+            BackgroundTransparency =
+                0.12,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                12
+        }
+    )
+
+
+Corner(Status,14)
+
+Stroke(
+    Status,
+    CYAN,
+    0.48,
+    1
+)
+
+
+local StatusDot =
+    New(
+        "Frame",
+        Status,
+        {
+            Size =
+                UDim2.fromOffset(
+                    7,
+                    7
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    10,
+                    10
+                ),
+
+            BackgroundColor3 =
+                GREEN,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                13
+        }
+    )
+
+
+Corner(StatusDot,8)
+
+
+New(
+    "TextLabel",
+    Status,
+    {
+        Size =
+            UDim2.fromOffset(
+                58,
+                20
+            ),
+
+        Position =
+            UDim2.fromOffset(
+                23,
+                4
+            ),
+
+        BackgroundTransparency =
+            1,
+
+        Text =
+            "ONLINE",
+
+        TextColor3 =
+            GREEN,
+
+        Font =
+            Enum.Font.GothamBold,
+
+        TextSize =
+            9,
+
+        ZIndex =
+            13
+    }
+)
+
+
+--========================================================--
+-- CLOSE
+--========================================================--
+
+local Close =
+    New(
+        "TextButton",
+        Top,
+        {
+            Size =
+                UDim2.fromOffset(
+                    28,
+                    28
+                ),
+
+            Position =
+                UDim2.new(
+                    1,
+                    -42,
+                    0,
+                    17
+                ),
+
+            BackgroundColor3 =
+                CARD2,
+
+            BackgroundTransparency =
+                0.10,
+
+            BorderSizePixel =
+                0,
+
+            Text =
+                "X",
+
+            TextColor3 =
+                SOFT,
+
+            Font =
+                Enum.Font.GothamBold,
+
+            TextSize =
+                11,
+
+            AutoButtonColor =
+                false,
+
+            ZIndex =
+                20
+        }
+    )
+
+
+Corner(Close,10)
+
+Stroke(
+    Close,
+    BORDER,
+    0.25,
+    1
+)
+
+
+Close.MouseButton1Click:Connect(function()
+
+    Tween(
+        Main,
+        0.25,
+        {
+            Size =
+                UDim2.fromOffset(
+                    20,
+                    20
+                ),
+
+            BackgroundTransparency =
+                1
+        },
+        Enum.EasingStyle.Quint,
+        Enum.EasingDirection.In
+    )
+
+    task.wait(0.25)
+
+    ScreenGui:Destroy()
+
+end)
+
+
+--========================================================--
+-- BODY
+--========================================================--
+
+local Body =
+    New(
+        "Frame",
+        Main,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -28,
+                    1,
+                    -78
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    14,
+                    70
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                8
+        }
+    )
+
+
+--========================================================--
+-- SIDEBAR
+--========================================================--
+
+local Sidebar =
+    New(
+        "Frame",
+        Body,
+        {
+            Size =
+                UDim2.new(
+                    0,
+                    145,
+                    1,
+                    0
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    0,
+                    0
+                ),
+
+            BackgroundColor3 =
+                PANEL,
+
+            BackgroundTransparency =
+                0.12,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                9
+        }
+    )
+
+
+Corner(Sidebar,14)
+
+Stroke(
+    Sidebar,
+    BORDER,
+    0.25,
+    1
+)
+
+
+New(
+    "TextLabel",
+    Sidebar,
+    {
+        Size =
+            UDim2.new(
+                1,
+                -24,
+                0,
+                20
+            ),
+
+        Position =
+            UDim2.fromOffset(
+                12,
+                10
+            ),
+
+        BackgroundTransparency =
+            1,
+
+        Text =
+            "PAGES",
+
+        TextColor3 =
+            MUTED,
+
+        Font =
+            Enum.Font.GothamBold,
+
+        TextSize =
+            8,
+
+        TextXAlignment =
+            Enum.TextXAlignment.Left,
+
+        ZIndex =
+            11
+    }
+)
+
+
+--========================================================--
+-- PAGES HOLDER
+--========================================================--
+
+local Pages =
+    New(
+        "Frame",
+        Body,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -159,
+                    1,
+                    0
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    159,
+                    0
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            BorderSizePixel =
+                0,
+
+            ClipsDescendants =
+                true,
+
+            ZIndex =
+                8
+        }
+    )
+
+
+--========================================================--
+-- PAGE SYSTEM
+--========================================================--
+
+local PageList = {}
+
+
+local function CreatePage(name)
+
+    local Page =
+        New(
+            "Frame",
+            Pages,
+            {
+                Name =
+                    name,
+
+                Size =
+                    UDim2.fromScale(
+                        1,
+                        1
+                    ),
+
+                Position =
+                    UDim2.fromScale(
+                        0,
+                        0
+                    ),
+
+                BackgroundTransparency =
+                    1,
+
+                BorderSizePixel =
+                    0,
+
+                Visible =
+                    false,
+
+                ZIndex =
+                    9
+            }
+        )
+
+    PageList[name] = Page
+
+    return Page
+
+end
+
+
+local HomePage =
+    CreatePage("HOME")
+
+local ControlPage =
+    CreatePage("CONTROL")
+
+local ItemsPage =
+    CreatePage("ITEMS")
+
+local GamesPage =
+    CreatePage("GAMES")
+
+local SettingsPage =
+    CreatePage("SETTINGS")
+
+
+--========================================================--
+-- PAGE HEADER
+--========================================================--
+
+local function PageHeader(
+    parent,
+    title,
+    subtitle
+)
+
+    local Header =
+        New(
+            "Frame",
+            parent,
+            {
+                Size =
+                    UDim2.new(
+                        1,
+                        0,
+                        0,
+                        62
+                    ),
+
+                BackgroundColor3 =
+                    CARD,
+
+                BackgroundTransparency =
+                    0.08,
+
+                BorderSizePixel =
+                    0,
+
+                ZIndex =
+                    10
+            }
+        )
+
+
+    Corner(Header,14)
+
+    Stroke(
+        Header,
+        FURINA,
+        0.45,
+        1
+    )
+
+
+    New(
+        "TextLabel",
+        Header,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -24,
+                    0,
+                    25
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    14,
+                    10
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                title,
+
+            TextColor3 =
+                WHITE,
+
+            Font =
+                Enum.Font.GothamBold,
+
+            TextSize =
+                16,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            ZIndex =
+                11
+        }
+    )
+
+
+    New(
+        "TextLabel",
+        Header,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -24,
+                    0,
+                    18
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    14,
+                    34
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                subtitle,
+
+            TextColor3 =
+                MUTED,
+
+            Font =
+                Enum.Font.Gotham,
+
+            TextSize =
+                8,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            ZIndex =
+                11
+        }
+    )
+
+
+    return Header
+
+end
+
+
+--========================================================--
+-- SIMPLE CARD
+--========================================================--
+
+local function SimpleCard(
+    parent,
+    title,
+    description,
+    x,
+    y,
+    w,
+    h
+)
+
+    local Card =
+        New(
+            "Frame",
+            parent,
+            {
+                Size =
+                    UDim2.fromOffset(
+                        w,
+                        h
+                    ),
+
+                Position =
+                    UDim2.fromOffset(
+                        x,
+                        y
+                    ),
+
+                BackgroundColor3 =
+                    CARD,
+
+                BackgroundTransparency =
+                    0.10,
+
+                BorderSizePixel =
+                    0,
+
+                ZIndex =
+                    10
+            }
+        )
+
+
+    Corner(Card,13)
+
+    Stroke(
+        Card,
+        BORDER,
+        0.28,
+        1
+    )
+
+
+    local Accent =
+        New(
+            "Frame",
+            Card,
+            {
+                Size =
+                    UDim2.fromOffset(
+                        3,
+                        h-22
+                    ),
+
+                Position =
+                    UDim2.fromOffset(
+                        9,
+                        11
+                    ),
+
+                BackgroundColor3 =
+                    FURINA,
+
+                BorderSizePixel =
+                    0,
+
+                ZIndex =
+                    11
+            }
+        )
+
+
+    Corner(Accent,3)
+
+
+    New(
+        "TextLabel",
+        Card,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -30,
+                    0,
+                    20
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    20,
+                    10
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                title,
+
+            TextColor3 =
+                WHITE,
+
+            Font =
+                Enum.Font.GothamBold,
+
+            TextSize =
+                10,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            ZIndex =
+                11
+        }
+    )
+
+
+    New(
+        "TextLabel",
+        Card,
+        {
+            Size =
+                UDim2.new(
+                    1,
+                    -30,
+                    1,
+                    -35
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    20,
+                    30
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            Text =
+                description,
+
+            TextColor3 =
+                MUTED,
+
+            Font =
+                Enum.Font.Gotham,
+
+            TextSize =
+                8,
+
+            TextWrapped =
+                true,
+
+            TextXAlignment =
+                Enum.TextXAlignment.Left,
+
+            TextYAlignment =
+                Enum.TextYAlignment.Top,
+
+            ZIndex =
+                11
+        }
+    )
+
+
+    return Card
+
+end
+
+
+--========================================================--
+-- HOME
+--========================================================--
+
+PageHeader(
+    HomePage,
+    "HOME",
+    "Welcome to ZYNTRIX PRIME"
+)
+
+
+SimpleCard(
+    HomePage,
+    "ZYNTRIX PRIME",
+    "Premium Furina Glass interface. Day la giao dien UI.",
+    0,
+    72,
+    195,
+    82
+)
+
+
+SimpleCard(
+    HomePage,
+    "INTERFACE",
+    "Clean glass layout with soft aqua and blue accents.",
+    205,
+    72,
+    195,
+    82
+)
+
+
+SimpleCard(
+    HomePage,
+    "STATUS",
+    "System interface is ready.",
+    0,
+    164,
+    195,
+    82
+)
+
+
+SimpleCard(
+    HomePage,
+    "MOBILE",
+    "Designed for touch screens and compact layouts.",
+    205,
+    164,
+    195,
+    82
+)
+
+
+--========================================================--
+-- CONTROL
+--========================================================--
+
+PageHeader(
+    ControlPage,
+    "CONTROL",
+    "Control interface"
+)
+
+
+SimpleCard(
+    ControlPage,
+    "CONTROL PANEL",
+    "Khu vuc giao dien Control. UI only.",
+    0,
+    72,
+    400,
+    82
+)
+
+
+SimpleCard(
+    ControlPage,
+    "TOUCH",
+    "Touch-friendly interface layout.",
+    0,
+    164,
+    195,
+    82
+)
+
+
+SimpleCard(
+    ControlPage,
+    "LAYOUT",
+    "Clean controls presentation.",
+    205,
+    164,
+    195,
+    82
+)
+
+
+--========================================================--
+-- ITEMS
+--========================================================--
+
+PageHeader(
+    ItemsPage,
+    "ITEMS",
+    "Items interface"
+)
+
+
+SimpleCard(
+    ItemsPage,
+    "ITEMS PANEL",
+    "Khu vuc giao dien Items. UI only.",
+    0,
+    72,
+    400,
+    82
+)
+
+
+SimpleCard(
+    ItemsPage,
+    "ITEM SLOT",
+    "Visual item card.",
+    0,
+    164,
+    195,
+    82
+)
+
+
+SimpleCard(
+    ItemsPage,
+    "ITEM LIST",
+    "Clean item presentation.",
+    205,
+    164,
+    195,
+    82
+)
+
+
+--========================================================--
+-- GAMES
+--========================================================--
+
+PageHeader(
+    GamesPage,
+    "GAMES",
+    "Games interface"
+)
+
+
+SimpleCard(
+    GamesPage,
+    "GAME PANEL",
+    "Khu vuc giao dien Games. UI only.",
+    0,
+    72,
+    400,
+    82
+)
+
+
+SimpleCard(
+    GamesPage,
+    "GAME CARD",
+    "Visual game card.",
+    0,
+    164,
+    195,
+    82
+)
+
+
+SimpleCard(
+    GamesPage,
+    "GAME LIST",
+    "Clean game presentation.",
+    205,
+    164,
+    195,
+    82
+)
+
+
+--========================================================--
+-- SETTINGS
+--========================================================--
+
+PageHeader(
+    SettingsPage,
+    "SETTINGS",
+    "Interface settings"
+)
+
+
+SimpleCard(
+    SettingsPage,
+    "UI SETTINGS",
+    "Khu vuc giao dien Settings.",
+    0,
+    72,
+    400,
+    82
+)
+
+
+SimpleCard(
+    SettingsPage,
+    "APPEARANCE",
+    "Furina Glass visual configuration.",
+    0,
+    164,
+    195,
+    82
+)
+
+
+SimpleCard(
+    SettingsPage,
+    "ABOUT",
+    "ZYNTRIX PRIME V8 • UI ONLY",
+    205,
+    164,
+    195,
+    82
+)
+
+
+--========================================================--
+-- NAVIGATION BUTTON
+--========================================================--
+
+local CurrentPage =
+    "HOME"
+
+local CurrentButton
+
+
+local function CreateNav(
+    name,
+    text,
+    imageId,
+    y
+)
+
+    local Button =
+        New(
+            "TextButton",
+            Sidebar,
+            {
+                Name =
+                    name,
+
+                Size =
+                    UDim2.new(
+                        1,
+                        -16,
+                        0,
+                        43
+                    ),
+
+                Position =
+                    UDim2.fromOffset(
+                        8,
+                        y
+                    ),
+
+                BackgroundColor3 =
+                    CARD,
+
+                BackgroundTransparency =
+                    0.42,
+
+                BorderSizePixel =
+                    0,
+
+                Text =
+                    "",
+
+                AutoButtonColor =
+                    false,
+
+                ZIndex =
+                    15
+            }
+        )
+
+
+    Corner(Button,11)
+
+
+    local ImageBox =
+        New(
+            "Frame",
+            Button,
+            {
+                Size =
+                    UDim2.fromOffset(
+                        27,
+                        27
+                    ),
+
+                Position =
+                    UDim2.fromOffset(
+                        8,
+                        8
+                    ),
+
+                BackgroundColor3 =
+                    CARD2,
+
+                BackgroundTransparency =
+                    0.12,
+
+                BorderSizePixel =
+                    0,
+
+                ZIndex =
+                    16
+            }
+        )
+
+
+    Corner(ImageBox,8)
+
+
+    if imageId ~= nil
+        and imageId ~= "" then
+
+        local Img =
+            New(
+                "ImageLabel",
+                ImageBox,
+                {
+                    Size =
+                        UDim2.new(
+                            1,
+                            -6,
+                            1,
+                            -6
+                        ),
+
+                    Position =
+                        UDim2.fromOffset(
+                            3,
+                            3
+                        ),
+
+                    BackgroundTransparency =
+                        1,
+
+                    Image =
+                        imageId,
+
+                    ImageTransparency =
+                        0.08,
+
+                    ScaleType =
+                        Enum.ScaleType.Crop,
+
+                    ZIndex =
+                        17
+                }
+            )
+
+
+        Corner(Img,6)
+
+    else
+
+        local Dot =
+            New(
+                "Frame",
+                ImageBox,
+                {
+                    Size =
+                        UDim2.fromOffset(
+                            7,
+                            7
+                        ),
+
+                    Position =
+                        UDim2.fromOffset(
+                            10,
+                            10
+                        ),
+
+                    BackgroundColor3 =
+                        MUTED,
+
+                    BorderSizePixel =
+                        0,
+
+                    ZIndex =
+                        17
+                }
+            )
+
+
+        Corner(Dot,8)
+
+    end
+
+
+    local Label =
+        New(
+            "TextLabel",
+            Button,
+            {
+                Size =
+                    UDim2.new(
+                        1,
+                        -48,
+                        1,
+                        0
+                    ),
+
+                Position =
+                    UDim2.fromOffset(
+                        43,
+                        0
+                    ),
+
+                BackgroundTransparency =
+                    1,
+
+                Text =
+                    text,
+
+                TextColor3 =
+                    SOFT,
+
+                Font =
+                    Enum.Font.GothamMedium,
+
+                TextSize =
+                    9,
+
+                TextXAlignment =
+                    Enum.TextXAlignment.Left,
+
+                ZIndex =
+                    17
+            }
+        )
+
+
+    Button.MouseEnter:Connect(function()
+
+        if CurrentButton ~= Button then
+
+            Tween(
+                Button,
+                0.16,
+                {
+                    BackgroundTransparency =
+                        0.20
+                }
+            )
 
         end
 
-    end
-)
+    end)
 
---==============================================================
--- CURSOR SLIDER END
---==============================================================
 
-UIS.InputEnded:Connect(
-    function(input)
+    Button.MouseLeave:Connect(function()
 
-        if input.UserInputType
-            == Enum.UserInputType.Touch then
+        if CurrentButton ~= Button then
 
-            sliderDragging =
+            Tween(
+                Button,
+                0.16,
+                {
+                    BackgroundTransparency =
+                        0.42
+                }
+            )
+
+        end
+
+    end)
+
+
+    Button.MouseButton1Click:Connect(function()
+
+        if CurrentButton
+            and CurrentButton ~= Button then
+
+            Tween(
+                CurrentButton,
+                0.18,
+                {
+                    BackgroundColor3 =
+                        CARD,
+
+                    BackgroundTransparency =
+                        0.42
+                }
+            )
+
+        end
+
+
+        if PageList[CurrentPage] then
+
+            PageList[CurrentPage].Visible =
                 false
 
         end
 
-    end
-)
 
---==============================================================
--- SCREEN RESIZE
--- KEEP BUTTONS INSIDE SCREEN
---==============================================================
+        CurrentPage =
+            name
 
-ControlLayer:GetPropertyChangedSignal(
-    "AbsoluteSize"
-):Connect(
-    function()
+        PageList[name].Visible =
+            true
 
-        task.defer(
-            function()
+        CurrentButton =
+            Button
 
-                for _, button in pairs(
-                    allButtons
-                ) do
 
-                    if button
-                        and
-                        button.Parent then
+        Tween(
+            Button,
+            0.20,
+            {
+                BackgroundColor3 =
+                    DEEPBLUE,
 
-                        button.Position =
-                            SafePosition(
-                                button.Position,
-                                button.Size
-                            )
-
-                    end
-
-                end
-
-            end
+                BackgroundTransparency =
+                    0.08
+            }
         )
 
-    end
-)
 
---==============================================================
--- INITIAL STATE
---==============================================================
+        Tween(
+            Label,
+            0.20,
+            {
+                TextColor3 =
+                    WHITE
+            }
+        )
 
-layoutLocked =
+    end)
+
+
+    return Button
+
+end
+
+
+--========================================================--
+-- NAVS
+--========================================================--
+
+local HomeButton =
+    CreateNav(
+        "HOME",
+        "HOME",
+        HOME_IMAGE_ID,
+        40
+    )
+
+
+local ControlButton =
+    CreateNav(
+        "CONTROL",
+        "CONTROL",
+        CONTROL_IMAGE_ID,
+        87
+    )
+
+
+local ItemsButton =
+    CreateNav(
+        "ITEMS",
+        "ITEMS",
+        ITEMS_IMAGE_ID,
+        134
+    )
+
+
+local GamesButton =
+    CreateNav(
+        "GAMES",
+        "GAMES",
+        GAMES_IMAGE_ID,
+        181
+    )
+
+
+local SettingsButton =
+    CreateNav(
+        "SETTINGS",
+        "SETTINGS",
+        SETTINGS_IMAGE_ID,
+        228
+    )
+
+
+CurrentButton =
+    HomeButton
+
+HomePage.Visible =
     true
 
-editMode =
+
+Tween(
+    HomeButton,
+    0.2,
+    {
+        BackgroundColor3 =
+            DEEPBLUE,
+
+        BackgroundTransparency =
+            0.08
+    }
+)
+
+
+--========================================================--
+-- DRAG SYSTEM
+--========================================================--
+
+local Dragging =
     false
 
-controlsEnabled =
-    true
+local DragStart
 
-ToggleBtn.Text =
-    "Phím ảo: BẬT"
+local StartPosition
 
-EditBtn.Text =
-    "✎  Chỉnh sửa: TẮT"
 
-LockBtn.Text =
-    "🔒  Khóa vị trí"
+Top.InputBegan:Connect(function(input)
 
---==============================================================
--- COUNT CHECK
---==============================================================
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
 
-local count = 0
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
 
-for _, key in ipairs(
-    OrderedKeys
-) do
+        Dragging =
+            true
 
-    if allButtons[key] then
+        DragStart =
+            input.Position
 
-        count += 1
+        StartPosition =
+            Main.Position
 
     end
 
-end
+end)
 
---==============================================================
--- DEBUG
---==============================================================
 
-print(
-    "================================"
-)
+Top.InputEnded:Connect(function(input)
 
-print(
-    " MOBILE CONTROL SUITE V6"
-)
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
 
-print(
-    " BUTTONS: "
-    ..
-    tostring(count)
-    ..
-    "/37"
-)
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
 
-print(
-    " TOUCH ONLY"
-)
+        Dragging =
+            false
 
-print(
-    " NO MOUSE"
-)
+    end
 
-print(
-    " SNAP: 8PX"
-)
+end)
 
-print(
-    " SCREEN BOUNDARY: ON"
-)
 
-print(
-    " EDIT MODE: KEY BLOCK"
-)
+UserInputService.InputChanged:Connect(function(input)
 
-print(
-    " DRAG: ON"
-)
+    if not Dragging then
+        return
+    end
 
-print(
-    " LOCK: ON"
-)
+    if input.UserInputType ~=
+        Enum.UserInputType.MouseMovement
 
-print(
-    " COPY COORDINATES: ON"
-)
+        and input.UserInputType ~=
+        Enum.UserInputType.Touch then
 
-print(
-    "================================"
-)
+        return
+    end
 
-if count == 37 then
 
-    print(
-        "✅ 37/37 BUTTONS READY"
+    local Delta =
+        input.Position -
+        DragStart
+
+
+    Main.Position =
+        UDim2.new(
+            StartPosition.X.Scale,
+            StartPosition.X.Offset + Delta.X,
+
+            StartPosition.Y.Scale,
+            StartPosition.Y.Offset + Delta.Y
+        )
+
+end)
+
+
+--========================================================--
+-- RESIZE HANDLE
+--========================================================--
+
+local Resize =
+    New(
+        "TextButton",
+        Main,
+        {
+            Name =
+                "ResizeHandle",
+
+            Size =
+                UDim2.fromOffset(
+                    36,
+                    36
+                ),
+
+            Position =
+                UDim2.new(
+                    1,
+                    -36,
+                    1,
+                    -36
+                ),
+
+            BackgroundTransparency =
+                1,
+
+            BorderSizePixel =
+                0,
+
+            Text =
+                "",
+
+            AutoButtonColor =
+                false,
+
+            ZIndex =
+                100
+        }
     )
 
-else
 
-    warn(
-        "⚠️ BUTTON ERROR: "
-        ..
-        tostring(count)
-        ..
-        "/37"
+--========================================================--
+-- RESIZE VISUAL
+--========================================================--
+
+local R1 =
+    New(
+        "Frame",
+        Resize,
+        {
+            Size =
+                UDim2.fromOffset(
+                    12,
+                    2
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    14,
+                    20
+                ),
+
+            Rotation =
+                -45,
+
+            BackgroundColor3 =
+                FURINA,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                101
+        }
     )
 
-end
+
+Corner(R1,2)
+
+
+local R2 =
+    New(
+        "Frame",
+        Resize,
+        {
+            Size =
+                UDim2.fromOffset(
+                    8,
+                    2
+                ),
+
+            Position =
+                UDim2.fromOffset(
+                    19,
+                    25
+                ),
+
+            Rotation =
+                -45,
+
+            BackgroundColor3 =
+                CYAN,
+
+            BorderSizePixel =
+                0,
+
+            ZIndex =
+                101
+        }
+    )
+
+
+Corner(R2,2)
+
+
+local Resizing =
+    false
+
+local ResizeStart
+
+local StartSize
+
+
+Resize.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        Resizing =
+            true
+
+        ResizeStart =
+            input.Position
+
+        StartSize =
+            Main.AbsoluteSize
+
+    end
+
+end)
+
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not Resizing then
+        return
+    end
+
+    if input.UserInputType ~=
+        Enum.UserInputType.MouseMovement
+
+        and input.UserInputType ~=
+        Enum.UserInputType.Touch then
+
+        return
+    end
+
+
+    local Delta =
+        input.Position -
+        ResizeStart
+
+
+    local NewWidth =
+        math.clamp(
+            StartSize.X + Delta.X,
+            480,
+            900
+        )
+
+
+    local NewHeight =
+        math.clamp(
+            StartSize.Y + Delta.Y,
+            300,
+            600
+        )
+
+
+    Main.Size =
+        UDim2.fromOffset(
+            NewWidth,
+            NewHeight
+        )
+
+end)
+
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        Resizing =
+            false
+
+    end
+
+end)
+
+
+--========================================================--
+-- FLOATING MENU
+--========================================================--
+
+local Floating =
+    New(
+        "ImageButton",
+        ScreenGui,
+        {
+            Name =
+                "FloatingMenu",
+
+            Size =
+                UDim2.fromOffset(
+                    52,
+                    52
+                ),
+
+            Position =
+                UDim2.new(
+                    1,
+                    -72,
+                    0.5,
+                    -26
+                ),
+
+            BackgroundColor3 =
+                PANEL,
+
+            BackgroundTransparency =
+                0.08,
+
+            BorderSizePixel =
+                0,
+
+            Image =
+                MENU_IMAGE_ID,
+
+            ImageTransparency =
+                0,
+
+            AutoButtonColor =
+                false,
+
+            ZIndex =
+                200
+        }
+    )
+
+
+Corner(Floating,16)
+
+Stroke(
+    Floating,
+    CYAN,
+    0.22,
+    1
+)
+
+
+local MenuVisible =
+    true
+
+
+Floating.MouseButton1Click:Connect(function()
+
+    MenuVisible =
+        not MenuVisible
+
+
+    if MenuVisible then
+
+        Main.Visible =
+            true
+
+        Tween(
+            Main,
+            0.25,
+            {
+                BackgroundTransparency =
+                    0.04
+            }
+        )
+
+    else
+
+        Tween(
+            Main,
+            0.22,
+            {
+                BackgroundTransparency =
+                    1
+            }
+        )
+
+        task.wait(0.22)
+
+        Main.Visible =
+            false
+
+    end
+
+end)
+
+
+--========================================================--
+-- FLOATING MENU DRAG
+--========================================================--
+
+local MenuDragging =
+    false
+
+local MenuDragStart
+
+local MenuStart
+
+
+Floating.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        MenuDragging =
+            true
+
+        MenuDragStart =
+            input.Position
+
+        MenuStart =
+            Floating.Position
+
+    end
+
+end)
+
+
+Floating.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        MenuDragging =
+            false
+
+    end
+
+end)
+
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not MenuDragging then
+        return
+    end
+
+    if input.UserInputType ~=
+        Enum.UserInputType.MouseMovement
+
+        and input.UserInputType ~=
+        Enum.UserInputType.Touch then
+
+        return
+    end
+
+
+    local Delta =
+        input.Position -
+        MenuDragStart
+
+
+    Floating.Position =
+        UDim2.new(
+            MenuStart.X.Scale,
+            MenuStart.X.Offset + Delta.X,
+
+            MenuStart.Y.Scale,
+            MenuStart.Y.Offset + Delta.Y
+        )
+
+end)
+
+
+--========================================================--
+-- STATUS PULSE
+--========================================================--
+
+task.spawn(function()
+
+    while ScreenGui.Parent do
+
+        Tween(
+            StatusDot,
+            0.9,
+            {
+                BackgroundTransparency =
+                    0.35
+            },
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut
+        )
+
+        task.wait(0.9)
+
+
+        Tween(
+            StatusDot,
+            0.9,
+            {
+                BackgroundTransparency =
+                    0
+            },
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut
+        )
+
+        task.wait(0.9)
+
+    end
+
+end)
+
+
+--========================================================--
+-- FLOATING PULSE
+--========================================================--
+
+task.spawn(function()
+
+    while ScreenGui.Parent do
+
+        Tween(
+            Floating,
+            1.5,
+            {
+                ImageTransparency =
+                    0.15
+            },
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut
+        )
+
+        task.wait(1.5)
+
+
+        Tween(
+            Floating,
+            1.5,
+            {
+                ImageTransparency =
+                    0
+            },
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut
+        )
+
+        task.wait(1.5)
+
+    end
+
+end)
+
+
+--========================================================--
+-- GLOBAL RANDOM COLOR SPLIT & TEXT SHINE EFFECT
+--========================================================--
+
+task.spawn(function()
+    task.wait(0.5)
+
+    -- Danh sách các bảng màu ngẫu nhiên để chuyển đổi liên tục
+    local ColorPresets = {
+        {Color3.fromRGB(255, 100, 150), Color3.fromRGB(77, 224, 255), Color3.fromRGB(255, 255, 255)},
+        {Color3.fromRGB(111, 207, 236), Color3.fromRGB(139, 105, 210), Color3.fromRGB(255, 255, 255)},
+        {Color3.fromRGB(91, 224, 165), Color3.fromRGB(77, 224, 255), Color3.fromRGB(255, 255, 255)},
+        {Color3.fromRGB(255, 180, 100), Color3.fromRGB(255, 100, 220), Color3.fromRGB(255, 255, 255)},
+        {Color3.fromRGB(200, 100, 255), Color3.fromRGB(55, 187, 218), Color3.fromRGB(255, 255, 255)}
+    }
+
+    local function ApplyRandomColorShine(textObj)
+        if textObj:FindFirstChildOfClass("UIGradient") then return end
+
+        local shineGrad = New("UIGradient", textObj, {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 220, 255)),
+                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(255, 255, 255))
+            }),
+            Offset = Vector2.new(-1.2, 0)
+        })
+
+        -- Luồng chạy hiệu ứng đổi màu 2 nửa ngẫu nhiên và trượt ánh sáng
+        task.spawn(function()
+            while textObj and textObj.Parent and ScreenGui.Parent do
+                -- Đổi màu ngẫu nhiên liên tục
+                local chosenColors = ColorPresets[math.random(1, #ColorPresets)]
+                shineGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0.0, chosenColors[1]),
+                    ColorSequenceKeypoint.new(0.4, chosenColors[2]),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), -- Điểm lóe sáng ở giữa 2 màu
+                    ColorSequenceKeypoint.new(0.6, chosenColors[2]),
+                    ColorSequenceKeypoint.new(1.0, chosenColors[1])
+                })
+
+                -- Trượt dải sáng qua lại
+                local tweenInfo = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                local tween = TweenService:Create(shineGrad, tweenInfo, { Offset = Vector2.new(1.2, 0) })
+                tween:Play()
+                
+                tween.Completed:Wait()
+                shineGrad.Offset = Vector2.new(-1.2, 0)
+                task.wait(math.random(0.5, 1.5))
+            end
+        end)
+    end
+
+    for _, descendant in ipairs(ScreenGui:GetDescendants()) do
+        if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+            if descendant.Name ~= "Close" then
+                ApplyRandomColorShine(descendant)
+            end
+        end
+    end
+
+    ScreenGui.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+            if descendant.Name ~= "Close" then
+                ApplyRandomColorShine(descendant)
+            end
+        end
+    end)
+end)
+
+
+--========================================================--
+-- OPEN ANIMATION
+--========================================================--
+
+local OriginalSize =
+    Main.Size
+
+
+Main.Size =
+    UDim2.fromOffset(
+        500,
+        310
+    )
+
+Main.BackgroundTransparency =
+    1
+
+
+task.wait(0.05)
+
+
+Tween(
+    Main,
+    0.42,
+    {
+        Size =
+            OriginalSize,
+
+        BackgroundTransparency =
+            0.04
+    },
+    Enum.EasingStyle.Quint,
+    Enum.EasingDirection.Out
+)
+
+
+--========================================================--
+-- FINAL
+--========================================================--
+
+print(
+    "ZYNTRIX PRIME V8 • FURINA GLASS • RANDOM DUAL COLOR SHINE ACTIVE"
+)
