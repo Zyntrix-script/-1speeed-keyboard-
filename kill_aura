@@ -25,20 +25,19 @@ local MENU_IMAGE_ID =
     "rbxthumb://type=Asset&id=16033474887&w=420&h=420"
 
 local HOME_IMAGE_ID =
-    "rbxthumb://type=Asset&id=125844112624149&w=150&h=150"
+     "rbxthumb://type=Asset&id= 85714778846550&w=150&h=150"
 
 local CONTROL_IMAGE_ID =
-    ""
+    "rbxthumb://type=Asset&id= 85714778846550&w=150&h=150"
 
 local ITEMS_IMAGE_ID =
-    ""
+    "rbxthumb://type=Asset&id= 85714778846550&w=150&h=150"
 
 local GAMES_IMAGE_ID =
-    "rbxthumb://type=Asset&id=1030847042&w=150&h=150"
+    "rbxthumb://type=Asset&id= 85714778846550&w=150&h=150"
 
 local SETTINGS_IMAGE_ID =
-    "rbxthumb://type=Asset&id=9520684025&w=150&h=150"
-
+    "rbxthumb://type=Asset&id= 85714778846550&w=150&h=150"
 
 --========================================================--
 -- REMOVE OLD UI
