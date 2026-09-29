@@ -24,7 +24,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local BACKGROUND_ID = " 84603425243479"
 
-local WALK_THUMBNAIL_ID = "0"
+local WALK_THUMBNAIL_ID = " 16861357039"
 local TELE_THUMBNAIL_ID = "0"
 
 local TELE_SOUND_ID = "0"
