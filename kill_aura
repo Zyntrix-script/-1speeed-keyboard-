@@ -761,3 +761,63 @@ SetReady()
 
 print("ZYNTRIX PRIME MINI 99% LOADED")
 print("WALK + TELE -> TrackStart")
+
+--========================================================--
+-- ZYNTRIX • FAST INTERACT
+-- NO UI • NO AUTO • NO INFINITE JUMP
+-- TỰ TAY TƯƠNG TÁC
+--========================================================--
+
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local StarterGui = game:GetService("StarterGui")
+
+local Player = Players.LocalPlayer
+
+--========================================================--
+-- FAST INTERACT
+--========================================================--
+
+local function FastInteract(prompt)
+    if not prompt or not prompt:IsA("ProximityPrompt") then
+        return
+    end
+
+    if not prompt.Enabled then
+        return
+    end
+
+    -- Chỉ kích hoạt khi người chơi tự bắt đầu tương tác
+    pcall(function()
+        fireproximityprompt(prompt, 1, true)
+    end)
+end
+
+--========================================================--
+-- KHI NGƯỜI CHƠI TỰ NHẤN TƯƠNG TÁC
+--========================================================--
+
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if player == Player then
+        FastInteract(prompt)
+    end
+end)
+
+-- Prompt yêu cầu nhấn 1 lần
+ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+    if player == Player then
+        FastInteract(prompt)
+    end
+end)
+
+--========================================================--
+-- THÔNG BÁO
+--========================================================--
+
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "ZYNTRIX",
+        Text = "Đã bật tương tác nhanh ⚡",
+        Duration = 3
+    })
+end)
