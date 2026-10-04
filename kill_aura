@@ -1,1181 +1,2003 @@
---==============================================================--
--- ZYNTRIX PRIME • MINI
--- ANTI EGG
--- TELE -> 1s -> AUTO WALK
--- MOBILE • DRAG • LOW LAG • RESPAWN SAFE
---==============================================================--
+--==============================================================
+-- ZYNTRIX PRIME • LIBRARY
+-- THUMBNAIL ID • 111102924856481
+-- MAP = 14 GUARDS • TELEPORT + SOUND
+-- ANTI EGG = COORDINATE TELEPORT + 1s AUTO WALK
+-- NO TRACKSTART
+-- ANTI DUPE • MOBILE/PC DRAG • MINI
+-- CONTINUOUS TEXT SHINE • RESPAWN SAFE
+--==============================================================
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
---==============================================================--
+local GUI_NAME = "ZyntrixPrimeLibrary"
+
+--==============================================================
 -- CONFIG
---==============================================================--
+--==============================================================
 
-local BACKGROUND_ID = "84603425243479"
-local TELE_SOUND_ID = "74715602103425"
+local THUMBNAIL_ID = "111102924856481"
 
-local ARRIVE_DISTANCE = 5
-local WALK_REFRESH = 0.12
-local DRAG_THRESHOLD = 5
-local TELE_WALK_DELAY = 1
+local THUMBNAIL =
+	"rbxthumb://type=Asset&id="
+	.. THUMBNAIL_ID
+	.. "&w=420&h=420"
 
---==============================================================--
--- REMOVE OLD UI
---==============================================================--
+-- MAP TELEPORT SOUND
+local MAP_SOUND_ID = "124934430745275"
 
-pcall(function()
-    local Old = CoreGui:FindFirstChild("ZyntrixPrimeMini99")
-    if Old then
-        Old:Destroy()
-    end
-end)
+-- ANTI EGG SOUND
+local ANTI_EGG_SOUND_ID = "74715602103425"
 
---==============================================================--
--- STATE
---==============================================================--
+-- ANTI EGG TARGET
+local ANTI_EGG_POSITION = Vector3.new(
+	549,
+	71,
+	-364
+)
+
+local ANTI_EGG_WALK_DELAY = 1
+local ANTI_EGG_ARRIVE_DISTANCE = 5
+local ANTI_EGG_WALK_REFRESH = 0.12
+
+--==============================================================
+-- ANTI DUPE
+--==============================================================
+
+local Old = PlayerGui:FindFirstChild(GUI_NAME)
+
+if Old then
+	Old:Destroy()
+end
+
+--==============================================================
+-- SCREEN GUI
+--==============================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+
+ScreenGui.Name = GUI_NAME
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = PlayerGui
+
+--==============================================================
+-- CONTINUOUS TEXT SHINE
+--==============================================================
+
+local function ContinuousShine(TextObject, BaseColor, ShineColor, Speed)
+
+	local Gradient = Instance.new("UIGradient")
+	Gradient.Parent = TextObject
+
+	Gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, BaseColor),
+		ColorSequenceKeypoint.new(0.40, BaseColor),
+		ColorSequenceKeypoint.new(0.47, ShineColor),
+		ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255,255,255)),
+		ColorSequenceKeypoint.new(0.53, ShineColor),
+		ColorSequenceKeypoint.new(0.60, BaseColor),
+		ColorSequenceKeypoint.new(1, BaseColor)
+	})
+
+	Gradient.Offset = Vector2.new(-1, 0)
+
+	task.spawn(function()
+
+		while TextObject.Parent do
+
+			Gradient.Offset = Vector2.new(-1, 0)
+
+			local Tween = TweenService:Create(
+				Gradient,
+				TweenInfo.new(
+					Speed or 1.5,
+					Enum.EasingStyle.Linear
+				),
+				{
+					Offset = Vector2.new(1, 0)
+				}
+			)
+
+			Tween:Play()
+			Tween.Completed:Wait()
+
+		end
+
+	end)
+
+	return Gradient
+end
+
+--==============================================================
+-- CHARACTER STATE
+--==============================================================
 
 local Character
 local Humanoid
 local Root
 
-local IsWalking = false
 local IsDead = false
 local Closed = false
 
-local WalkConnection
+local AntiEggWalking = false
+local AntiEggToken = 0
+
+local AntiEggWalkConnection
 local DeathConnection
 local CharacterConnection
 
-local TeleWalkToken = 0
-
---==============================================================--
--- FIND TRACKSTART
---==============================================================--
-
-local function FindTrackStart()
-
-    local Direct = Workspace:FindFirstChild("TrackStart")
-
-    if Direct then
-
-        if Direct:IsA("BasePart") then
-            return Direct
-        end
-
-        if Direct:IsA("Attachment")
-            and Direct.Parent
-            and Direct.Parent:IsA("BasePart") then
-
-            return Direct.Parent
-        end
-
-        if Direct:IsA("Model") then
-
-            if Direct.PrimaryPart then
-                return Direct.PrimaryPart
-            end
-
-            local Part =
-                Direct:FindFirstChildWhichIsA(
-                    "BasePart",
-                    true
-                )
-
-            if Part then
-                return Part
-            end
-        end
-    end
-
-    for _, Obj in ipairs(Workspace:GetDescendants()) do
-
-        if Obj.Name == "TrackStart" then
-
-            if Obj:IsA("BasePart") then
-                return Obj
-            end
-
-            if Obj:IsA("Attachment")
-                and Obj.Parent
-                and Obj.Parent:IsA("BasePart") then
-
-                return Obj.Parent
-            end
-
-            if Obj:IsA("Model") then
-
-                if Obj.PrimaryPart then
-                    return Obj.PrimaryPart
-                end
-
-                local Part =
-                    Obj:FindFirstChildWhichIsA(
-                        "BasePart",
-                        true
-                    )
-
-                if Part then
-                    return Part
-                end
-            end
-        end
-    end
-
-    return nil
-end
-
---==============================================================--
--- CHARACTER
---==============================================================--
+--==============================================================
+-- CHARACTER SETUP
+--==============================================================
 
 local function SetupCharacter(Char)
 
-    Character = Char
+	Character = Char
 
-    Humanoid =
-        Char:WaitForChild(
-            "Humanoid",
-            8
-        )
+	Humanoid = Char:WaitForChild(
+		"Humanoid",
+		8
+	)
 
-    Root =
-        Char:WaitForChild(
-            "HumanoidRootPart",
-            8
-        )
+	Root = Char:WaitForChild(
+		"HumanoidRootPart",
+		8
+	)
 
-    if not Humanoid or not Root then
-        return false
-    end
+	if not Humanoid or not Root then
+		return false
+	end
 
-    IsDead = false
+	IsDead = false
 
-    return true
+	return true
 end
 
---==============================================================--
--- STOP WALKING
---==============================================================--
-
-local function StopWalking()
-
-    IsWalking = false
-
-    if WalkConnection then
-        WalkConnection:Disconnect()
-        WalkConnection = nil
-    end
-
-    if Humanoid
-        and Humanoid.Parent
-        and Humanoid.Health > 0 then
-
-        pcall(function()
-            Humanoid:Move(Vector3.zero, false)
-        end)
-    end
-end
-
---==============================================================--
--- GUI
---==============================================================--
-
-local ScreenGui = Instance.new("ScreenGui")
-
-ScreenGui.Name = "ZyntrixPrimeMini99"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = CoreGui
-
---==============================================================--
+--==============================================================
 -- MAIN
---==============================================================--
+--==============================================================
 
 local Main = Instance.new("Frame")
 
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(160, 100)
-
-Main.Position = UDim2.new(
-    0.5,
-    -80,
-    0.5,
-    -50
-)
+Main.Parent = ScreenGui
+Main.Size = UDim2.new(0,245,0,335)
+Main.Position = UDim2.new(0.05,0,0.5,-167)
 
 Main.BackgroundColor3 =
-    Color3.fromRGB(5, 8, 15)
+	Color3.fromRGB(7,11,20)
 
-Main.BackgroundTransparency = 0.08
+Main.BackgroundTransparency = 0.03
 Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
 Main.Active = true
-Main.Parent = ScreenGui
-
---==============================================================--
--- MAIN CORNER
---==============================================================--
 
 local MainCorner = Instance.new("UICorner")
 
 MainCorner.CornerRadius =
-    UDim.new(0, 11)
+	UDim.new(0,15)
 
 MainCorner.Parent = Main
 
---==============================================================--
--- MAIN STROKE
---==============================================================--
-
 local MainStroke = Instance.new("UIStroke")
 
-MainStroke.Color =
-    Color3.fromRGB(0, 212, 255)
-
-MainStroke.Thickness = 1.2
-MainStroke.Transparency = 0.15
 MainStroke.Parent = Main
+MainStroke.Color =
+	Color3.fromRGB(0,190,255)
 
---==============================================================--
--- BACKGROUND
---==============================================================--
+MainStroke.Thickness = 1.5
+MainStroke.Transparency = 0.25
 
-local Background = Instance.new("ImageLabel")
+--==============================================================
+-- HEADER
+--==============================================================
 
-Background.Name = "Background"
-Background.Size = UDim2.fromScale(1, 1)
-Background.Position = UDim2.fromScale(0, 0)
-Background.BackgroundTransparency = 1
+local Header = Instance.new("Frame")
 
-Background.Image =
-    "rbxthumb://type=Asset&id="
-    .. BACKGROUND_ID
-    .. "&w=720&h=720"
+Header.Name = "Header"
+Header.Parent = Main
+Header.Size = UDim2.new(1,0,0,48)
 
-Background.ImageTransparency = 0
-Background.ScaleType = Enum.ScaleType.Crop
-Background.ZIndex = 1
-Background.Parent = Main
+Header.BackgroundColor3 =
+	Color3.fromRGB(12,20,35)
 
-local BackgroundCorner =
-    Instance.new("UICorner")
+Header.BorderSizePixel = 0
 
-BackgroundCorner.CornerRadius =
-    UDim.new(0, 11)
+local HeaderCorner = Instance.new("UICorner")
 
-BackgroundCorner.Parent =
-    Background
+HeaderCorner.CornerRadius =
+	UDim.new(0,15)
 
---==============================================================--
--- OVERLAY
---==============================================================--
+HeaderCorner.Parent = Header
 
-local Overlay = Instance.new("Frame")
+--==============================================================
+-- LOGO
+--==============================================================
 
-Overlay.Name = "Overlay"
-Overlay.Size = UDim2.fromScale(1, 1)
+local Logo = Instance.new("ImageLabel")
 
-Overlay.BackgroundColor3 =
-    Color3.fromRGB(3, 7, 13)
+Logo.Name = "Logo"
+Logo.Parent = Header
 
-Overlay.BackgroundTransparency = 0.84
-Overlay.BorderSizePixel = 0
-Overlay.ZIndex = 2
-Overlay.Parent = Main
+Logo.BackgroundTransparency = 1
+Logo.Position = UDim2.new(0,8,0,7)
+Logo.Size = UDim2.new(0,34,0,34)
 
-local OverlayCorner =
-    Instance.new("UICorner")
+Logo.Image = THUMBNAIL
+Logo.ScaleType = Enum.ScaleType.Fit
 
-OverlayCorner.CornerRadius =
-    UDim.new(0, 11)
+local LogoCorner = Instance.new("UICorner")
 
-OverlayCorner.Parent =
-    Overlay
+LogoCorner.CornerRadius =
+	UDim.new(0,9)
 
---==============================================================--
--- DRAG BAR
---==============================================================--
+LogoCorner.Parent = Logo
 
-local DragBar = Instance.new("Frame")
-
-DragBar.Name = "DragBar"
-
-DragBar.Size =
-    UDim2.new(
-        1,
-        -35,
-        0,
-        28
-    )
-
-DragBar.Position =
-    UDim2.fromOffset(0, 0)
-
-DragBar.BackgroundTransparency = 1
-DragBar.Active = true
-DragBar.ZIndex = 10
-DragBar.Parent = Main
-
---==============================================================--
+--==============================================================
 -- TITLE
---==============================================================--
+--==============================================================
 
 local Title = Instance.new("TextLabel")
 
-Title.Size =
-    UDim2.new(
-        1,
-        -6,
-        1,
-        0
-    )
-
-Title.Position =
-    UDim2.fromOffset(6, 0)
+Title.Name = "Title"
+Title.Parent = Header
 
 Title.BackgroundTransparency = 1
-Title.Text = "ZYNTRIX BYPASS"
+Title.Position = UDim2.new(0,48,0,5)
+Title.Size = UDim2.new(1,-95,0,20)
 
+Title.Text = "Steal An Egg"
 Title.TextColor3 =
-    Color3.fromRGB(0, 220, 255)
+	Color3.fromRGB(240,250,255)
 
-Title.TextSize = 11
 Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.ZIndex = 11
-Title.Parent = DragBar
 
---==============================================================--
--- CLOSE
---==============================================================--
+ContinuousShine(
+	Title,
+	Color3.fromRGB(240,250,255),
+	Color3.fromRGB(0,220,255),
+	1.5
+)
 
-local Close = Instance.new("TextButton")
+local Subtitle = Instance.new("TextLabel")
 
-Close.Name = "Close"
+Subtitle.Name = "Subtitle"
+Subtitle.Parent = Header
 
-Close.Size =
-    UDim2.fromOffset(22, 22)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Position = UDim2.new(0,48,0,27)
+Subtitle.Size = UDim2.new(1,-95,0,12)
 
-Close.Position =
-    UDim2.new(
-        1,
-        -27,
-        0,
-        3
-    )
+Subtitle.Text = "By Zyntrix_Vn"
+Subtitle.TextColor3 =
+	Color3.fromRGB(85,140,170)
 
-Close.BackgroundColor3 =
-    Color3.fromRGB(150, 25, 40)
+Subtitle.Font = Enum.Font.GothamMedium
+Subtitle.TextSize = 7
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 
-Close.BackgroundTransparency = 0.15
-Close.BorderSizePixel = 0
-Close.Text = "×"
+--==============================================================
+-- MINIMIZE
+--==============================================================
 
-Close.TextColor3 =
-    Color3.new(1, 1, 1)
+local Minimize = Instance.new("TextButton")
 
-Close.TextSize = 16
-Close.Font = Enum.Font.GothamBold
-Close.AutoButtonColor = false
-Close.ZIndex = 20
-Close.Parent = Main
+Minimize.Name = "Minimize"
+Minimize.Parent = Header
 
-local CloseCorner =
-    Instance.new("UICorner")
+Minimize.Size = UDim2.new(0,30,0,28)
+Minimize.Position = UDim2.new(1,-38,0.5,-14)
 
-CloseCorner.CornerRadius =
-    UDim.new(1, 0)
+Minimize.BackgroundColor3 =
+	Color3.fromRGB(16,42,60)
 
-CloseCorner.Parent = Close
+Minimize.BorderSizePixel = 0
+Minimize.Text = "−"
 
---==============================================================--
--- STATUS
---==============================================================--
+Minimize.TextColor3 =
+	Color3.fromRGB(110,220,255)
 
-local Status = Instance.new("TextLabel")
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 18
+Minimize.AutoButtonColor = false
 
-Status.Size =
-    UDim2.new(
-        1,
-        -10,
-        0,
-        13
-    )
+local MinCorner = Instance.new("UICorner")
 
-Status.Position =
-    UDim2.fromOffset(5, 30)
+MinCorner.CornerRadius =
+	UDim.new(0,8)
 
-Status.BackgroundTransparency = 1
-Status.Text = "ANTI EGG • READY"
+MinCorner.Parent = Minimize
 
-Status.TextColor3 =
-    Color3.fromRGB(160, 225, 240)
+--==============================================================
+-- TAB BAR
+--==============================================================
 
-Status.TextSize = 8
-Status.Font = Enum.Font.GothamMedium
-Status.TextXAlignment = Enum.TextXAlignment.Center
-Status.ZIndex = 10
-Status.Parent = Main
+local Tabs = Instance.new("Frame")
 
---==============================================================--
+Tabs.Name = "Tabs"
+Tabs.Parent = Main
+
+Tabs.BackgroundTransparency = 1
+Tabs.Position = UDim2.new(0,8,0,55)
+Tabs.Size = UDim2.new(1,-16,0,38)
+
+--==============================================================
+-- MAP TAB
+--==============================================================
+
+local MapTab = Instance.new("TextButton")
+
+MapTab.Name = "MapTab"
+MapTab.Parent = Tabs
+
+MapTab.Size =
+	UDim2.new(0.5,-3,1,0)
+
+MapTab.BackgroundColor3 =
+	Color3.fromRGB(0,125,180)
+
+MapTab.BorderSizePixel = 0
+MapTab.Text = "MAP"
+
+MapTab.TextColor3 =
+	Color3.fromRGB(255,255,255)
+
+MapTab.Font = Enum.Font.GothamBold
+MapTab.TextSize = 10
+MapTab.AutoButtonColor = false
+
+local MapCorner = Instance.new("UICorner")
+
+MapCorner.CornerRadius =
+	UDim.new(0,9)
+
+MapCorner.Parent = MapTab
+
+--==============================================================
+-- ANTI EGG TAB
+--==============================================================
+
+local AntiEggTab = Instance.new("TextButton")
+
+AntiEggTab.Name = "AntiEggTab"
+AntiEggTab.Parent = Tabs
+
+AntiEggTab.Size =
+	UDim2.new(0.5,-3,1,0)
+
+AntiEggTab.Position =
+	UDim2.new(0.5,3,0,0)
+
+AntiEggTab.BackgroundColor3 =
+	Color3.fromRGB(18,27,40)
+
+AntiEggTab.BorderSizePixel = 0
+
+AntiEggTab.Text = " ANTI EGG"
+
+AntiEggTab.TextColor3 =
+	Color3.fromRGB(120,155,175)
+
+AntiEggTab.Font = Enum.Font.GothamBold
+AntiEggTab.TextSize = 10
+AntiEggTab.AutoButtonColor = false
+
+local EggCorner = Instance.new("UICorner")
+
+EggCorner.CornerRadius =
+	UDim.new(0,9)
+
+EggCorner.Parent = AntiEggTab
+
+--==============================================================
+-- CONTENT
+--==============================================================
+
+local Content = Instance.new("Frame")
+
+Content.Name = "Content"
+Content.Parent = Main
+
+Content.BackgroundTransparency = 1
+Content.Position = UDim2.new(0,8,0,100)
+Content.Size = UDim2.new(1,-16,1,-108)
+
+--==============================================================
+-- MAP PAGE
+--==============================================================
+
+local MapPage = Instance.new("ScrollingFrame")
+
+MapPage.Name = "MapPage"
+MapPage.Parent = Content
+
+MapPage.Size = UDim2.new(1,0,1,0)
+
+MapPage.BackgroundTransparency = 1
+MapPage.BorderSizePixel = 0
+
+MapPage.ScrollBarThickness = 2
+MapPage.ScrollBarImageColor3 =
+	Color3.fromRGB(0,190,255)
+
+MapPage.AutomaticCanvasSize =
+	Enum.AutomaticSize.Y
+
+MapPage.CanvasSize =
+	UDim2.new(0,0,0,0)
+
+MapPage.Visible = true
+
+MapPage.ScrollingDirection =
+	Enum.ScrollingDirection.Y
+
+local MapLayout = Instance.new("UIListLayout")
+
+MapLayout.Parent = MapPage
+
+MapLayout.Padding =
+	UDim.new(0,6)
+
+MapLayout.SortOrder =
+	Enum.SortOrder.LayoutOrder
+
+--==============================================================
+-- ANTI EGG PAGE
+--==============================================================
+
+local AntiEggPage = Instance.new("Frame")
+
+AntiEggPage.Name = "AntiEggPage"
+AntiEggPage.Parent = Content
+
+AntiEggPage.Size =
+	UDim2.new(1,0,1,0)
+
+AntiEggPage.BackgroundTransparency = 1
+AntiEggPage.Visible = false
+
+--==============================================================
+-- MAP TELEPORT SOUND
+--==============================================================
+
+local MapTeleportSound = Instance.new("Sound")
+
+MapTeleportSound.Name =
+	"MapTeleportSound"
+
+MapTeleportSound.SoundId =
+	"rbxassetid://" ..
+	MAP_SOUND_ID
+
+MapTeleportSound.Volume = 1
+MapTeleportSound.Parent = Main
+
+--==============================================================
+-- ANTI EGG SOUND
+--==============================================================
+
+local AntiEggSound = Instance.new("Sound")
+
+AntiEggSound.Name =
+	"AntiEggSound"
+
+AntiEggSound.SoundId =
+	"rbxassetid://" ..
+	ANTI_EGG_SOUND_ID
+
+AntiEggSound.Volume = 1
+AntiEggSound.Parent = Main
+
+--==============================================================
+-- FIND GUARD
+--==============================================================
+
+local function FindGuard(PathParts)
+
+	local Current = Workspace
+
+	for _, Name in ipairs(PathParts) do
+
+		if not Current then
+			return nil
+		end
+
+		Current = Current:FindFirstChild(Name)
+
+	end
+
+	if not Current then
+		return nil
+	end
+
+	if Current:IsA("BasePart") then
+		return Current
+	end
+
+	if Current:IsA("Attachment")
+		and Current.Parent
+		and Current.Parent:IsA("BasePart") then
+
+		return Current.Parent
+	end
+
+	if Current:IsA("Model") then
+
+		if Current.PrimaryPart then
+			return Current.PrimaryPart
+		end
+
+		local Part =
+			Current:FindFirstChildWhichIsA(
+				"BasePart",
+				true
+			)
+
+		if Part then
+			return Part
+		end
+	end
+
+	return nil
+end
+
+--==============================================================
+-- MAP GUARDS
+--==============================================================
+
+local MapGuards = {
+
+	{
+		Name = "Abyss Ocean",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Abyss Ocean",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Cherry Blossom",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Cherry Blossom",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Cosmic",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Cosmic",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Desert",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Desert",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Forest",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Forest",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Jungle",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Jungle",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Lake",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Lake",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Prehistoric",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Prehistoric",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Snow",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Snow",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Volcano",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Volcano",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Titan Temple",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Titan Temple",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Light Dark • Prehistoric",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Prehistoric",
+			"Light Dark",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Light Dark",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Light Dark",
+			"Guard"
+		}
+	},
+
+	{
+		Name = "Enchanted Forest",
+		Path = {
+			"World",
+			"Areas",
+			"GuardAreas",
+			"Enchanted Forest",
+			"Guard"
+		}
+	}
+
+}
+
+--==============================================================
+-- MAP TELEPORT
+--==============================================================
+
+local function TeleportToGuard(Data, Button, StatusLabel)
+
+	if Closed then
+		return
+	end
+
+	if not Character
+		or not Character.Parent
+		or not Humanoid
+		or Humanoid.Health <= 0
+		or not Root
+		or not Root.Parent then
+
+		if StatusLabel then
+			StatusLabel.Text = "CHARACTER NOT READY"
+		end
+
+		return
+	end
+
+	local Guard =
+		FindGuard(Data.Path)
+
+	if not Guard then
+
+		if StatusLabel then
+			StatusLabel.Text =
+				"GUARD NOT FOUND"
+		end
+
+		if Button then
+			TweenService:Create(
+				Button,
+				TweenInfo.new(0.12),
+				{
+					BackgroundColor3 =
+						Color3.fromRGB(80,25,35)
+				}
+			):Play()
+
+			task.delay(0.3,function()
+
+				if Button and Button.Parent then
+
+					TweenService:Create(
+						Button,
+						TweenInfo.new(0.15),
+						{
+							BackgroundColor3 =
+								Color3.fromRGB(13,22,36)
+						}
+					):Play()
+
+				end
+
+			end)
+		end
+
+		return
+	end
+
+	-- STOP ANTI EGG WALK
+	AntiEggToken += 1
+	AntiEggWalking = false
+
+	if AntiEggWalkConnection then
+		AntiEggWalkConnection:Disconnect()
+		AntiEggWalkConnection = nil
+	end
+
+	-- TELEPORT
+	local Success =
+		pcall(function()
+
+			Root.CFrame =
+				Guard.CFrame
+				+ Vector3.new(0,3,0)
+
+		end)
+
+	if Success then
+
+		pcall(function()
+
+			MapTeleportSound:Stop()
+			MapTeleportSound.TimePosition = 0
+			MapTeleportSound:Play()
+
+		end)
+
+		if StatusLabel then
+			StatusLabel.Text = "TELEPORTED"
+		end
+
+		TweenService:Create(
+			Button,
+			TweenInfo.new(0.08),
+			{
+				BackgroundColor3 =
+					Color3.fromRGB(20,55,75)
+			}
+		):Play()
+
+		task.delay(0.12,function()
+
+			if Button and Button.Parent then
+
+				TweenService:Create(
+					Button,
+					TweenInfo.new(0.15),
+					{
+						BackgroundColor3 =
+							Color3.fromRGB(13,22,36)
+					}
+				):Play()
+
+			end
+
+		end)
+
+	else
+
+		if StatusLabel then
+			StatusLabel.Text =
+				"TELEPORT ERROR"
+		end
+
+	end
+end
+
+--==============================================================
+-- CREATE MAP BUTTON
+--==============================================================
+
+local function CreateFunctionButton(Data, Number)
+
+	local Button = Instance.new("TextButton")
+
+	Button.Name =
+		"MapFunction_" .. Number
+
+	Button.Parent = MapPage
+
+	Button.Size =
+		UDim2.new(1,-3,0,42)
+
+	Button.LayoutOrder = Number
+
+	Button.BackgroundColor3 =
+		Color3.fromRGB(13,22,36)
+
+	Button.BorderSizePixel = 0
+
+	Button.Text = ""
+	Button.AutoButtonColor = false
+
+	local Corner = Instance.new("UICorner")
+
+	Corner.CornerRadius =
+		UDim.new(0,10)
+
+	Corner.Parent = Button
+
+	local Stroke = Instance.new("UIStroke")
+
+	Stroke.Parent = Button
+
+	Stroke.Color =
+		Color3.fromRGB(0,170,230)
+
+	Stroke.Thickness = 1
+	Stroke.Transparency = 0.55
+
+	-- NUMBER
+	local NumberLabel = Instance.new("TextLabel")
+
+	NumberLabel.Name = "Number"
+	NumberLabel.Parent = Button
+
+	NumberLabel.BackgroundTransparency = 1
+	NumberLabel.Position =
+		UDim2.new(0,10,0,0)
+
+	NumberLabel.Size =
+		UDim2.new(0,27,1,0)
+
+	NumberLabel.Text =
+		string.format("%02d",Number)
+
+	NumberLabel.TextColor3 =
+		Color3.fromRGB(0,195,255)
+
+	NumberLabel.Font =
+		Enum.Font.GothamBold
+
+	NumberLabel.TextSize = 9
+
+	-- LABEL
+	local Label = Instance.new("TextLabel")
+
+	Label.Name = "Label"
+	Label.Parent = Button
+
+	Label.BackgroundTransparency = 1
+	Label.Position =
+		UDim2.new(0,45,0,0)
+
+	Label.Size =
+		UDim2.new(1,-55,1,0)
+
+	Label.Text = Data.Name
+
+	Label.TextColor3 =
+		Color3.fromRGB(235,245,255)
+
+	Label.Font =
+		Enum.Font.GothamSemibold
+
+	Label.TextSize = 10
+
+	Label.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	ContinuousShine(
+		Label,
+		Color3.fromRGB(235,245,255),
+		Color3.fromRGB(0,220,255),
+		1.35
+	)
+
+	-- STATUS
+	local StatusLabel = Instance.new("TextLabel")
+
+	StatusLabel.Name = "Status"
+
+	StatusLabel.Parent = Button
+
+	StatusLabel.BackgroundTransparency = 1
+
+	StatusLabel.Position =
+		UDim2.new(1,-82,0,0)
+
+	StatusLabel.Size =
+		UDim2.new(0,70,1,0)
+
+	StatusLabel.Text = ""
+
+	StatusLabel.TextColor3 =
+		Color3.fromRGB(0,220,255)
+
+	StatusLabel.Font =
+		Enum.Font.GothamMedium
+
+	StatusLabel.TextSize = 6
+
+	StatusLabel.TextXAlignment =
+		Enum.TextXAlignment.Right
+
+	-- HOVER
+	Button.MouseEnter:Connect(function()
+
+		TweenService:Create(
+			Stroke,
+			TweenInfo.new(0.15),
+			{
+				Transparency = 0.05
+			}
+		):Play()
+
+	end)
+
+	Button.MouseLeave:Connect(function()
+
+		TweenService:Create(
+			Stroke,
+			TweenInfo.new(0.15),
+			{
+				Transparency = 0.55
+			}
+		):Play()
+
+	end)
+
+	-- CLICK
+	Button.Activated:Connect(function()
+
+		TeleportToGuard(
+			Data,
+			Button,
+			StatusLabel
+		)
+
+	end)
+end
+
+--==============================================================
+-- CREATE 14 MAP BUTTONS
+--==============================================================
+
+for i, Data in ipairs(MapGuards) do
+
+	CreateFunctionButton(
+		Data,
+		i
+	)
+
+end
+
+--==============================================================
+-- ANTI EGG CARD
+--==============================================================
+
+local EggCard = Instance.new("Frame")
+
+EggCard.Name = "AntiEggCard"
+EggCard.Parent = AntiEggPage
+
+EggCard.Size =
+	UDim2.new(1,0,0,145)
+
+EggCard.Position =
+	UDim2.new(0,0,0,8)
+
+EggCard.BackgroundColor3 =
+	Color3.fromRGB(13,22,36)
+
+EggCard.BorderSizePixel = 0
+
+local EggCardCorner = Instance.new("UICorner")
+
+EggCardCorner.CornerRadius =
+	UDim.new(0,12)
+
+EggCardCorner.Parent = EggCard
+
+local EggStroke = Instance.new("UIStroke")
+
+EggStroke.Parent = EggCard
+
+EggStroke.Color =
+	Color3.fromRGB(255,170,55)
+
+EggStroke.Thickness = 1
+EggStroke.Transparency = 0.35
+
+--==============================================================
+-- ANTI EGG THUMBNAIL
+--==============================================================
+
+local EggIcon = Instance.new("ImageLabel")
+
+EggIcon.Name = "Thumbnail"
+EggIcon.Parent = EggCard
+
+EggIcon.BackgroundTransparency = 1
+
+EggIcon.Position =
+	UDim2.new(0,10,0,10)
+
+EggIcon.Size =
+	UDim2.new(0,42,0,42)
+
+EggIcon.Image = THUMBNAIL
+EggIcon.ScaleType = Enum.ScaleType.Fit
+
+local EggIconCorner = Instance.new("UICorner")
+
+EggIconCorner.CornerRadius =
+	UDim.new(0,9)
+
+EggIconCorner.Parent = EggIcon
+
+--==============================================================
+-- ANTI EGG TITLE
+--==============================================================
+
+local EggTitle = Instance.new("TextLabel")
+
+EggTitle.Name = "Title"
+EggTitle.Parent = EggCard
+
+EggTitle.BackgroundTransparency = 1
+
+EggTitle.Position =
+	UDim2.new(0,62,0,12)
+
+EggTitle.Size =
+	UDim2.new(1,-72,0,20)
+
+EggTitle.Text = "ANTI EGG"
+
+EggTitle.TextColor3 =
+	Color3.fromRGB(255,220,130)
+
+EggTitle.Font =
+	Enum.Font.GothamBold
+
+EggTitle.TextSize = 13
+
+EggTitle.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+ContinuousShine(
+	EggTitle,
+	Color3.fromRGB(255,220,130),
+	Color3.fromRGB(255,255,255),
+	1.4
+)
+
+--==============================================================
+-- SUBTITLE
+--==============================================================
+
+local EggSub = Instance.new("TextLabel")
+
+EggSub.Name = "Subtitle"
+EggSub.Parent = EggCard
+
+EggSub.BackgroundTransparency = 1
+
+EggSub.Position =
+	UDim2.new(0,62,0,35)
+
+EggSub.Size =
+	UDim2.new(1,-72,0,15)
+
+EggSub.Text =
+	"TELE • 1s • AUTO WALK"
+
+EggSub.TextColor3 =
+	Color3.fromRGB(120,150,170)
+
+EggSub.Font =
+	Enum.Font.GothamMedium
+
+EggSub.TextSize = 8
+
+EggSub.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+--==============================================================
+-- COORDINATE LABEL
+--==============================================================
+
+local CoordLabel = Instance.new("TextLabel")
+
+CoordLabel.Name = "Coordinates"
+CoordLabel.Parent = EggCard
+
+CoordLabel.BackgroundTransparency = 1
+
+CoordLabel.Position =
+	UDim2.new(0,10,0,62)
+
+CoordLabel.Size =
+	UDim2.new(1,-20,0,18)
+
+CoordLabel.Text =
+	"X 549  •  Y 71  •  Z -364"
+
+CoordLabel.TextColor3 =
+	Color3.fromRGB(0,210,255)
+
+CoordLabel.Font =
+	Enum.Font.GothamBold
+
+CoordLabel.TextSize = 9
+CoordLabel.TextXAlignment =
+	Enum.TextXAlignment.Center
+
+--==============================================================
+-- ANTI EGG STATUS
+--==============================================================
+
+local EggStatus = Instance.new("TextLabel")
+
+EggStatus.Name = "Status"
+EggStatus.Parent = EggCard
+
+EggStatus.BackgroundTransparency = 1
+
+EggStatus.Position =
+	UDim2.new(0,10,0,82)
+
+EggStatus.Size =
+	UDim2.new(1,-20,0,15)
+
+EggStatus.Text =
+	"READY"
+
+EggStatus.TextColor3 =
+	Color3.fromRGB(160,225,240)
+
+EggStatus.Font =
+	Enum.Font.GothamMedium
+
+EggStatus.TextSize = 8
+EggStatus.TextXAlignment =
+	Enum.TextXAlignment.Center
+
+--==============================================================
 -- ANTI EGG BUTTON
---==============================================================--
+--==============================================================
 
-local AntiEggButton =
-    Instance.new("TextButton")
+local EggToggle =
+	Instance.new("TextButton")
 
-AntiEggButton.Name =
-    "AntiEggButton"
+EggToggle.Name = "Toggle"
+EggToggle.Parent = EggCard
 
-AntiEggButton.Size =
-    UDim2.fromOffset(142, 34)
+EggToggle.Size =
+	UDim2.new(1,-20,0,29)
 
-AntiEggButton.Position =
-    UDim2.fromOffset(9, 48)
+EggToggle.Position =
+	UDim2.new(0,10,1,-39)
 
-AntiEggButton.BackgroundColor3 =
-    Color3.fromRGB(7, 18, 29)
+EggToggle.BackgroundColor3 =
+	Color3.fromRGB(25,38,52)
 
-AntiEggButton.BackgroundTransparency = 0.08
-AntiEggButton.BorderSizePixel = 0
+EggToggle.BorderSizePixel = 0
 
-AntiEggButton.Text = "ANTI EGG"
+EggToggle.Text =
+	"ANTI EGG"
 
-AntiEggButton.TextColor3 =
-    Color3.fromRGB(225, 250, 255)
+EggToggle.TextColor3 =
+	Color3.fromRGB(225,245,255)
 
-AntiEggButton.TextSize = 11
-AntiEggButton.Font = Enum.Font.GothamBold
-AntiEggButton.AutoButtonColor = false
-AntiEggButton.Active = true
-AntiEggButton.ZIndex = 15
-AntiEggButton.Parent = Main
+EggToggle.Font =
+	Enum.Font.GothamBold
 
-local AntiEggCorner =
-    Instance.new("UICorner")
+EggToggle.TextSize = 9
 
-AntiEggCorner.CornerRadius =
-    UDim.new(0, 8)
+EggToggle.AutoButtonColor = false
 
-AntiEggCorner.Parent =
-    AntiEggButton
+local EggToggleCorner = Instance.new("UICorner")
 
-local AntiEggStroke =
-    Instance.new("UIStroke")
+EggToggleCorner.CornerRadius =
+	UDim.new(0,8)
 
-AntiEggStroke.Color =
-    Color3.fromRGB(0, 212, 255)
+EggToggleCorner.Parent = EggToggle
 
-AntiEggStroke.Thickness = 1
-AntiEggStroke.Transparency = 0.2
-AntiEggStroke.Parent =
-    AntiEggButton
+--==============================================================
+-- STOP ANTI EGG WALK
+--==============================================================
 
---==============================================================--
--- TELE SOUND
---==============================================================--
+local function StopAntiEggWalk()
 
-local TeleSound =
-    Instance.new("Sound")
+	AntiEggWalking = false
 
-TeleSound.Name = "TeleSound"
+	if AntiEggWalkConnection then
 
-TeleSound.SoundId =
-    "rbxassetid://" ..
-    TELE_SOUND_ID
+		AntiEggWalkConnection:Disconnect()
+		AntiEggWalkConnection = nil
 
-TeleSound.Volume = 1
-TeleSound.Parent = Main
+	end
 
---==============================================================--
--- STATUS
---==============================================================--
+	if Humanoid
+		and Humanoid.Parent
+		and Humanoid.Health > 0 then
 
-local function SetReady()
+		pcall(function()
 
-    if Closed then
-        return
-    end
+			Humanoid:Move(
+				Vector3.zero,
+				false
+			)
 
-    Status.Text =
-        "ANTI EGG • READY"
-
-    Status.TextColor3 =
-        Color3.fromRGB(
-            160,
-            225,
-            240
-        )
-
-    AntiEggStroke.Color =
-        Color3.fromRGB(
-            0,
-            212,
-            255
-        )
+		end)
+	end
 end
 
-local function SetDead()
+--==============================================================
+-- START ANTI EGG WALK
+--==============================================================
 
-    Status.Text =
-        "DEAD • RESPAWN"
+local function StartAntiEggWalk(MyToken)
 
-    Status.TextColor3 =
-        Color3.fromRGB(
-            255,
-            120,
-            120
-        )
+	if Closed
+		or IsDead
+		or MyToken ~= AntiEggToken then
 
-    AntiEggStroke.Color =
-        Color3.fromRGB(
-            90,
-            60,
-            65
-        )
+		return
+	end
+
+	if not Character
+		or not Character.Parent
+		or not Humanoid
+		or Humanoid.Health <= 0
+		or not Root
+		or not Root.Parent then
+
+		return
+	end
+
+	StopAntiEggWalk()
+
+	AntiEggWalking = true
+
+	EggStatus.Text =
+		"WALKING TO TARGET"
+
+	EggStatus.TextColor3 =
+		Color3.fromRGB(0,255,180)
+
+	EggToggle.Text =
+		"ANTI EGG • WALKING"
+
+	local LastUpdate = 0
+
+	AntiEggWalkConnection =
+		RunService.Heartbeat:Connect(
+			function()
+
+				if Closed
+					or IsDead
+					or MyToken ~= AntiEggToken then
+
+					StopAntiEggWalk()
+					return
+				end
+
+				if not Character
+					or not Character.Parent
+					or not Humanoid
+					or Humanoid.Health <= 0
+					or not Root
+					or not Root.Parent then
+
+					StopAntiEggWalk()
+					return
+				end
+
+				local Distance =
+					(
+						Root.Position
+						- ANTI_EGG_POSITION
+					).Magnitude
+
+				if Distance <=
+					ANTI_EGG_ARRIVE_DISTANCE then
+
+					StopAntiEggWalk()
+
+					EggStatus.Text =
+						"ARRIVED • 549, 71, -364"
+
+					EggStatus.TextColor3 =
+						Color3.fromRGB(0,255,180)
+
+					EggToggle.Text =
+						"ANTI EGG • ARRIVED"
+
+					return
+				end
+
+				local Now = os.clock()
+
+				if Now - LastUpdate
+					>= ANTI_EGG_WALK_REFRESH then
+
+					LastUpdate = Now
+
+					pcall(function()
+
+						Humanoid:MoveTo(
+							ANTI_EGG_POSITION
+						)
+
+					end)
+				end
+			end
+		)
 end
 
---==============================================================--
--- WALK
---==============================================================--
-
-local function StartWalking()
-
-    if Closed or IsDead then
-        return
-    end
-
-    if not Character
-        or not Character.Parent then
-        return
-    end
-
-    if not Humanoid
-        or Humanoid.Health <= 0 then
-        return
-    end
-
-    if not Root
-        or not Root.Parent then
-        return
-    end
-
-    local Target =
-        FindTrackStart()
-
-    if not Target then
-
-        Status.Text =
-            "TRACKSTART NOT FOUND"
-
-        Status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                120,
-                120
-            )
-
-        return
-    end
-
-    StopWalking()
-
-    IsWalking = true
-
-    Status.Text =
-        "ANTI EGG • WALKING"
-
-    Status.TextColor3 =
-        Color3.fromRGB(
-            0,
-            255,
-            180
-        )
-
-    AntiEggStroke.Color =
-        Color3.fromRGB(
-            0,
-            255,
-            170
-        )
-
-    local LastUpdate = 0
-
-    WalkConnection =
-        RunService.Heartbeat:Connect(
-            function()
-
-                if Closed or IsDead then
-                    StopWalking()
-                    return
-                end
-
-                if not Character
-                    or not Character.Parent
-                    or not Humanoid
-                    or Humanoid.Health <= 0
-                    or not Root
-                    or not Root.Parent then
-
-                    StopWalking()
-                    return
-                end
-
-                if not Target
-                    or not Target.Parent then
-
-                    Target =
-                        FindTrackStart()
-
-                    if not Target then
-
-                        StopWalking()
-
-                        Status.Text =
-                            "TRACKSTART LOST"
-
-                        Status.TextColor3 =
-                            Color3.fromRGB(
-                                255,
-                                120,
-                                120
-                            )
-
-                        return
-                    end
-                end
-
-                local Distance =
-                    (
-                        Root.Position
-                        - Target.Position
-                    ).Magnitude
-
-                if Distance <= ARRIVE_DISTANCE then
-
-                    StopWalking()
-
-                    Status.Text =
-                        "ANTI EGG • ARRIVED"
-
-                    Status.TextColor3 =
-                        Color3.fromRGB(
-                            0,
-                            255,
-                            180
-                        )
-
-                    AntiEggStroke.Color =
-                        Color3.fromRGB(
-                            0,
-                            212,
-                            255
-                        )
-
-                    return
-                end
-
-                local Now = os.clock()
-
-                if Now - LastUpdate
-                    >= WALK_REFRESH then
-
-                    LastUpdate = Now
-
-                    pcall(function()
-
-                        Humanoid:MoveTo(
-                            Target.Position
-                        )
-
-                    end)
-                end
-            end
-        )
-end
-
---==============================================================--
--- ANTI EGG
--- TELE -> 1s -> WALK
---==============================================================--
+--==============================================================
+-- ACTIVATE ANTI EGG
+-- TELEPORT -> SOUND -> 1s -> WALK
+--==============================================================
 
 local function ActivateAntiEgg()
 
-    if Closed or IsDead then
-        return
-    end
+	if Closed or IsDead then
+		return
+	end
 
-    if not Character
-        or not Character.Parent then
-        return
-    end
+	if not Character
+		or not Character.Parent
+		or not Humanoid
+		or Humanoid.Health <= 0
+		or not Root
+		or not Root.Parent then
 
-    if not Humanoid
-        or Humanoid.Health <= 0 then
-        return
-    end
+		EggStatus.Text =
+			"CHARACTER NOT READY"
 
-    if not Root
-        or not Root.Parent then
-        return
-    end
+		EggStatus.TextColor3 =
+			Color3.fromRGB(255,120,120)
 
-    local Target =
-        FindTrackStart()
+		return
+	end
 
-    if not Target then
+	AntiEggToken += 1
 
-        Status.Text =
-            "TRACKSTART NOT FOUND"
+	local MyToken =
+		AntiEggToken
 
-        Status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                120,
-                120
-            )
+	StopAntiEggWalk()
 
-        return
-    end
+	--==========================================================
+	-- TELEPORT
+	--==========================================================
 
-    StopWalking()
+	local Success =
+		pcall(function()
 
-    TeleWalkToken += 1
+			Root.CFrame =
+				CFrame.new(
+					ANTI_EGG_POSITION
+				)
 
-    local MyToken =
-        TeleWalkToken
+		end)
 
-    --==========================================================--
-    -- TELEPORT
-    --==========================================================--
+	if not Success then
 
-    local Success =
-        pcall(function()
+		EggStatus.Text =
+			"TELEPORT ERROR"
 
-            Root.CFrame =
-                Target.CFrame
-                + Vector3.new(
-                    0,
-                    3,
-                    0
-                )
+		EggStatus.TextColor3 =
+			Color3.fromRGB(255,120,120)
 
-        end)
+		return
+	end
 
-    if not Success then
+	--==========================================================
+	-- SOUND
+	--==========================================================
 
-        Status.Text =
-            "TELEPORT ERROR"
+	pcall(function()
 
-        Status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                120,
-                120
-            )
+		AntiEggSound:Stop()
+		AntiEggSound.TimePosition = 0
+		AntiEggSound:Play()
 
-        return
-    end
+	end)
 
-    --==========================================================--
-    -- SOUND
-    --==========================================================--
+	--==========================================================
+	-- STATUS
+	--==========================================================
 
-    pcall(function()
+	EggStatus.Text =
+		"TELEPORTED • WAIT 1s"
 
-        TeleSound:Stop()
-        TeleSound.TimePosition = 0
-        TeleSound:Play()
+	EggStatus.TextColor3 =
+		Color3.fromRGB(80,180,255)
 
-    end)
+	EggToggle.Text =
+		"ANTI EGG • WAIT 1s"
 
-    --==========================================================--
-    -- WAIT 1 SECOND
-    --==========================================================--
+	TweenService:Create(
+		EggToggle,
+		TweenInfo.new(0.12),
+		{
+			BackgroundColor3 =
+				Color3.fromRGB(20,60,75)
+		}
+	):Play()
 
-    Status.Text =
-        "ANTI EGG • WAIT 1s"
+	--==========================================================
+	-- WAIT 1 SECOND
+	--==========================================================
 
-    Status.TextColor3 =
-        Color3.fromRGB(
-            80,
-            180,
-            255
-        )
+	task.delay(
+		ANTI_EGG_WALK_DELAY,
+		function()
 
-    task.delay(
-        TELE_WALK_DELAY,
-        function()
+			if Closed
+				or IsDead
+				or MyToken ~= AntiEggToken then
 
-            if Closed
-                or IsDead then
-                return
-            end
+				return
+			end
 
-            if MyToken ~= TeleWalkToken then
-                return
-            end
+			StartAntiEggWalk(
+				MyToken
+			)
 
-            if not Character
-                or not Character.Parent then
-                return
-            end
-
-            if not Humanoid
-                or Humanoid.Health <= 0 then
-                return
-            end
-
-            if not Root
-                or not Root.Parent then
-                return
-            end
-
-            StartWalking()
-
-        end
-    )
+		end
+	)
 end
 
---==============================================================--
--- BUTTON
---==============================================================--
+--==============================================================
+-- ANTI EGG CLICK
+--==============================================================
 
-AntiEggButton.Activated:Connect(
-    function()
+EggToggle.Activated:Connect(function()
 
-        ActivateAntiEgg()
+	ActivateAntiEgg()
 
-    end
-)
+end)
 
---==============================================================--
+--==============================================================
+-- TAB SWITCH
+--==============================================================
+
+MapTab.Activated:Connect(function()
+
+	MapPage.Visible = true
+	AntiEggPage.Visible = false
+
+	MapTab.BackgroundColor3 =
+		Color3.fromRGB(0,125,180)
+
+	MapTab.TextColor3 =
+		Color3.fromRGB(255,255,255)
+
+	AntiEggTab.BackgroundColor3 =
+		Color3.fromRGB(18,27,40)
+
+	AntiEggTab.TextColor3 =
+		Color3.fromRGB(120,155,175)
+
+end)
+
+AntiEggTab.Activated:Connect(function()
+
+	MapPage.Visible = false
+	AntiEggPage.Visible = true
+
+	MapTab.BackgroundColor3 =
+		Color3.fromRGB(18,27,40)
+
+	MapTab.TextColor3 =
+		Color3.fromRGB(120,155,175)
+
+	AntiEggTab.BackgroundColor3 =
+		Color3.fromRGB(150,95,25)
+
+	AntiEggTab.TextColor3 =
+		Color3.fromRGB(255,235,180)
+
+end)
+
+--==============================================================
+-- MINI
+--==============================================================
+
+local Mini = Instance.new("ImageButton")
+
+Mini.Name = "Mini"
+Mini.Parent = ScreenGui
+
+Mini.Size =
+	UDim2.new(0,46,0,46)
+
+Mini.Position =
+	UDim2.new(0.025,0,0.5,-23)
+
+Mini.BackgroundColor3 =
+	Color3.fromRGB(7,14,25)
+
+Mini.BorderSizePixel = 0
+
+Mini.Image = THUMBNAIL
+Mini.ScaleType = Enum.ScaleType.Fit
+
+Mini.Visible = false
+Mini.AutoButtonColor = false
+Mini.Active = true
+
+local MiniCorner = Instance.new("UICorner")
+
+MiniCorner.CornerRadius =
+	UDim.new(0,13)
+
+MiniCorner.Parent = Mini
+
+local MiniStroke = Instance.new("UIStroke")
+
+MiniStroke.Parent = Mini
+
+MiniStroke.Color =
+	Color3.fromRGB(0,200,255)
+
+MiniStroke.Thickness = 1.5
+MiniStroke.Transparency = 0.2
+
+--==============================================================
+-- DRAG
+--==============================================================
+
+local function MakeDraggable(Object)
+
+	local Dragging = false
+	local DragStart
+	local StartPosition
+
+	Object.InputBegan:Connect(function(Input)
+
+		if Input.UserInputType ==
+			Enum.UserInputType.MouseButton1
+			or Input.UserInputType ==
+			Enum.UserInputType.Touch then
+
+			Dragging = true
+			DragStart = Input.Position
+			StartPosition = Object.Position
+
+			Input.Changed:Connect(function()
+
+				if Input.UserInputState ==
+					Enum.UserInputState.End then
+
+					Dragging = false
+
+				end
+
+			end)
+
+		end
+
+	end)
+
+	UserInputService.InputChanged:Connect(function(Input)
+
+		if not Dragging then
+			return
+		end
+
+		if Input.UserInputType ==
+			Enum.UserInputType.MouseMovement
+			or Input.UserInputType ==
+			Enum.UserInputType.Touch then
+
+			local Delta =
+				Input.Position
+				- DragStart
+
+			Object.Position =
+				UDim2.new(
+					StartPosition.X.Scale,
+					StartPosition.X.Offset
+						+ Delta.X,
+
+					StartPosition.Y.Scale,
+					StartPosition.Y.Offset
+						+ Delta.Y
+				)
+
+		end
+
+	end)
+end
+
+MakeDraggable(Main)
+MakeDraggable(Mini)
+
+--==============================================================
+-- HIDE / SHOW
+--==============================================================
+
+local Open = true
+local SavedPosition = Main.Position
+
+Minimize.Activated:Connect(function()
+
+	if not Open then
+		return
+	end
+
+	Open = false
+
+	SavedPosition =
+		Main.Position
+
+	local HidePosition =
+		UDim2.new(
+			SavedPosition.X.Scale,
+			SavedPosition.X.Offset,
+
+			SavedPosition.Y.Scale,
+			SavedPosition.Y.Offset + 12
+		)
+
+	local T =
+		TweenService:Create(
+			Main,
+			TweenInfo.new(
+				0.22,
+				Enum.EasingStyle.Quint,
+				Enum.EasingDirection.In
+			),
+			{
+				Size =
+					UDim2.new(0,245,0,0),
+
+				Position =
+					HidePosition
+			}
+		)
+
+	T:Play()
+	T.Completed:Wait()
+
+	Main.Visible = false
+	Mini.Visible = true
+
+end)
+
+Mini.Activated:Connect(function()
+
+	if Open then
+		return
+	end
+
+	Open = true
+
+	Mini.Visible = false
+	Main.Visible = true
+
+	Main.Position =
+		SavedPosition
+
+	Main.Size =
+		UDim2.new(0,245,0,0)
+
+	TweenService:Create(
+		Main,
+		TweenInfo.new(
+			0.28,
+			Enum.EasingStyle.Quint,
+			Enum.EasingDirection.Out
+		),
+		{
+			Size =
+				UDim2.new(0,245,0,335)
+		}
+	):Play()
+
+end)
+
+--==============================================================
+-- MINI GLOW
+--==============================================================
+
+task.spawn(function()
+
+	while ScreenGui.Parent do
+
+		TweenService:Create(
+			MiniStroke,
+			TweenInfo.new(
+				0.9,
+				Enum.EasingStyle.Sine,
+				Enum.EasingDirection.InOut
+			),
+			{
+				Transparency = 0.65
+			}
+		):Play()
+
+		task.wait(0.9)
+
+		TweenService:Create(
+			MiniStroke,
+			TweenInfo.new(
+				0.9,
+				Enum.EasingStyle.Sine,
+				Enum.EasingDirection.InOut
+			),
+			{
+				Transparency = 0.12
+			}
+		):Play()
+
+		task.wait(0.9)
+
+	end
+
+end)
+
+--==============================================================
 -- DEATH
---==============================================================--
+--==============================================================
 
 local function BindDeath()
 
-    if DeathConnection then
+	if DeathConnection then
 
-        DeathConnection:Disconnect()
-        DeathConnection = nil
+		DeathConnection:Disconnect()
+		DeathConnection = nil
 
-    end
+	end
 
-    if not Humanoid then
-        return
-    end
+	if not Humanoid then
+		return
+	end
 
-    DeathConnection =
-        Humanoid.Died:Connect(
-            function()
+	DeathConnection =
+		Humanoid.Died:Connect(function()
 
-                IsDead = true
+			IsDead = true
 
-                TeleWalkToken += 1
+			AntiEggToken += 1
 
-                StopWalking()
+			StopAntiEggWalk()
 
-                if TeleSound then
+			pcall(function()
 
-                    pcall(function()
-                        TeleSound:Stop()
-                    end)
+				MapTeleportSound:Stop()
+				AntiEggSound:Stop()
 
-                end
+			end)
 
-                SetDead()
+			EggStatus.Text =
+				"DEAD • RESPAWN"
 
-            end
-        )
+			EggStatus.TextColor3 =
+				Color3.fromRGB(255,120,120)
+
+			EggToggle.Text =
+				"ANTI EGG • RESPAWN"
+
+		end)
+
 end
 
---==============================================================--
+--==============================================================
 -- INITIAL CHARACTER
---==============================================================--
+--==============================================================
 
 local InitialCharacter =
-    Player.Character
+	Player.Character
 
 if InitialCharacter then
 
-    if SetupCharacter(
-        InitialCharacter
-    ) then
+	if SetupCharacter(
+		InitialCharacter
+	) then
 
-        BindDeath()
+		BindDeath()
 
-    else
-
-        Status.Text =
-            "CHARACTER ERROR"
-
-        Status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                120,
-                120
-            )
-    end
+	end
 
 else
 
-    local NewCharacter =
-        Player.CharacterAdded:Wait()
+	local NewCharacter =
+		Player.CharacterAdded:Wait()
 
-    if SetupCharacter(
-        NewCharacter
-    ) then
+	if SetupCharacter(
+		NewCharacter
+	) then
 
-        BindDeath()
+		BindDeath()
 
-    end
+	end
+
 end
 
---==============================================================--
--- RESPAWN
---==============================================================--
+--==============================================================
+-- RESPAWN SAFE
+--==============================================================
 
 CharacterConnection =
-    Player.CharacterAdded:Connect(
-        function(NewCharacter)
+	Player.CharacterAdded:Connect(
+		function(NewCharacter)
 
-            if Closed then
-                return
-            end
+			if Closed then
+				return
+			end
 
-            TeleWalkToken += 1
+			AntiEggToken += 1
 
-            StopWalking()
+			StopAntiEggWalk()
 
-            IsDead = true
+			IsDead = true
 
-            if TeleSound then
+			pcall(function()
 
-                pcall(function()
-                    TeleSound:Stop()
-                end)
+				MapTeleportSound:Stop()
+				AntiEggSound:Stop()
 
-            end
+			end)
 
-            SetDead()
+			EggStatus.Text =
+				"DEAD • RESPAWN"
 
-            if DeathConnection then
+			EggStatus.TextColor3 =
+				Color3.fromRGB(255,120,120)
 
-                DeathConnection:Disconnect()
-                DeathConnection = nil
+			EggToggle.Text =
+				"ANTI EGG • RESPAWN"
 
-            end
+			if DeathConnection then
 
-            task.wait(0.25)
+				DeathConnection:Disconnect()
+				DeathConnection = nil
 
-            if Closed then
-                return
-            end
+			end
 
-            local Success =
-                SetupCharacter(
-                    NewCharacter
-                )
+			task.wait(0.25)
 
-            if not Success then
+			if Closed then
+				return
+			end
 
-                Status.Text =
-                    "CHARACTER ERROR"
+			local Success =
+				SetupCharacter(
+					NewCharacter
+				)
 
-                Status.TextColor3 =
-                    Color3.fromRGB(
-                        255,
-                        120,
-                        120
-                    )
+			if not Success then
 
-                return
-            end
+				EggStatus.Text =
+					"CHARACTER ERROR"
 
-            IsDead = false
+				EggStatus.TextColor3 =
+					Color3.fromRGB(255,120,120)
 
-            BindDeath()
-            SetReady()
+				return
+			end
 
-        end
-    )
+			IsDead = false
 
---==============================================================--
--- MOBILE DRAG
---==============================================================--
+			BindDeath()
 
-local Dragging = false
-local DragStart
-local StartPosition
-local DragInput
+			EggStatus.Text =
+				"READY • 549, 71, -364"
 
-DragBar.InputBegan:Connect(
-    function(Input)
+			EggStatus.TextColor3 =
+				Color3.fromRGB(160,225,240)
 
-        if Closed then
-            return
-        end
+			EggToggle.Text =
+				"ANTI EGG"
 
-        if Input.UserInputType
-            == Enum.UserInputType.MouseButton1
-            or Input.UserInputType
-            == Enum.UserInputType.Touch then
+		end
+	)
 
-            Dragging = true
-            DragStart = Input.Position
-            StartPosition = Main.Position
-
-            if Input.UserInputType
-                == Enum.UserInputType.Touch then
-
-                DragInput = Input
-
-            else
-
-                DragInput = nil
-
-            end
-        end
-    end
-)
-
-DragBar.InputChanged:Connect(
-    function(Input)
-
-        if Input.UserInputType
-            == Enum.UserInputType.MouseMovement
-            or Input.UserInputType
-            == Enum.UserInputType.Touch then
-
-            DragInput = Input
-
-        end
-    end
-)
-
-UserInputService.InputChanged:Connect(
-    function(Input)
-
-        if not Dragging then
-            return
-        end
-
-        if not DragStart
-            or not StartPosition then
-            return
-        end
-
-        if DragInput then
-
-            if Input ~= DragInput then
-                return
-            end
-
-        elseif Input.UserInputType
-            ~= Enum.UserInputType.MouseMovement then
-
-            return
-        end
-
-        local Delta =
-            Input.Position
-            - DragStart
-
-        if Delta.Magnitude
-            < DRAG_THRESHOLD then
-            return
-        end
-
-        Main.Position =
-            UDim2.new(
-                StartPosition.X.Scale,
-                StartPosition.X.Offset
-                    + Delta.X,
-
-                StartPosition.Y.Scale,
-                StartPosition.Y.Offset
-                    + Delta.Y
-            )
-    end
-)
-
-UserInputService.InputEnded:Connect(
-    function(Input)
-
-        if Input.UserInputType
-            == Enum.UserInputType.MouseButton1
-            or Input.UserInputType
-            == Enum.UserInputType.Touch then
-
-            Dragging = false
-            DragInput = nil
-            DragStart = nil
-            StartPosition = nil
-
-        end
-    end
-)
-
---==============================================================--
+--==============================================================
 -- CLOSE
---==============================================================--
+--==============================================================
 
-Close.Activated:Connect(
-    function()
+-- Giữ nút minimize, không thêm nút Close riêng.
+--==============================================================
 
-        if Closed then
-            return
-        end
+--==============================================================
+-- READY
+--==============================================================
 
-        Closed = true
+EggStatus.Text =
+	"READY • 549, 71, -364"
 
-        TeleWalkToken += 1
+EggStatus.TextColor3 =
+	Color3.fromRGB(160,225,240)
 
-        StopWalking()
+print("ZYNTRIX PRIME LIBRARY • LOADED")
+print("MAP • 14 GUARDS")
+print("MAP SOUND • " .. MAP_SOUND_ID)
+print("ANTI EGG • X549 Y71 Z-364")
+print("ANTI EGG SOUND • " .. ANTI_EGG_SOUND_ID)
+print("ANTI EGG • TELE -> 1s -> AUTO WALK")
+--========================================================--
+-- ZYNTRIX • FAST INTERACT
+-- NO UI • NO AUTO • NO INFINITE JUMP
+-- TỰ TAY TƯƠNG TÁC
+--========================================================--
 
-        if DeathConnection then
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local StarterGui = game:GetService("StarterGui")
 
-            DeathConnection:Disconnect()
-            DeathConnection = nil
+local Player = Players.LocalPlayer
 
-        end
-
-        if CharacterConnection then
-
-            CharacterConnection:Disconnect()
-            CharacterConnection = nil
-
-        end
-
-        if TeleSound then
-
-            pcall(function()
-                TeleSound:Stop()
-            end)
-
-        end
-
-        ScreenGui:Destroy()
-
-    end
-)
-
---==============================================================--
+--========================================================--
 -- FAST INTERACT
---==============================================================--
+--========================================================--
 
 local function FastInteract(prompt)
-
-    if not prompt
-        or not prompt:IsA("ProximityPrompt") then
+    if not prompt or not prompt:IsA("ProximityPrompt") then
         return
     end
 
@@ -1183,56 +2005,37 @@ local function FastInteract(prompt)
         return
     end
 
+    -- Chỉ kích hoạt khi người chơi tự bắt đầu tương tác
     pcall(function()
-
-        fireproximityprompt(
-            prompt,
-            1,
-            true
-        )
-
+        fireproximityprompt(prompt, 1, true)
     end)
 end
 
---==============================================================--
--- TỰ BẮT ĐẦU TƯƠNG TÁC
---==============================================================--
+--========================================================--
+-- KHI NGƯỜI CHƠI TỰ NHẤN TƯƠNG TÁC
+--========================================================--
 
-ProximityPromptService
-    .PromptButtonHoldBegan
-    :Connect(
-        function(prompt, player)
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if player == Player then
+        FastInteract(prompt)
+    end
+end)
 
-            if player == Player then
-                FastInteract(prompt)
-            end
+-- Prompt yêu cầu nhấn 1 lần
+ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+    if player == Player then
+        FastInteract(prompt)
+    end
+end)
 
-        end
-    )
+--========================================================--
+-- THÔNG BÁO
+--========================================================--
 
---==============================================================--
--- PROMPT TRIGGERED
---==============================================================--
-
-ProximityPromptService
-    .PromptTriggered
-    :Connect(
-        function(prompt, player)
-
-            if player == Player then
-                -- Giữ nguyên, không auto tìm prompt
-            end
-
-        end
-    )
-
---==============================================================--
--- READY
---==============================================================--
-
-SetReady()
-
-print("ZYNTRIX PRIME MINI LOADED")
-print("ANTI EGG")
-print("TELE -> 1s -> AUTO WALK")
-print("FAST INTERACT ENABLED")
+pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = "ZYNTRIX",
+        Text = "Đã bật tương tác nhanh ⚡",
+        Duration = 3
+    })
+end)
