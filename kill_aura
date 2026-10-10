@@ -1,2041 +1,611 @@
---==============================================================
--- ZYNTRIX PRIME • LIBRARY
--- THUMBNAIL ID • 111102924856481
--- MAP = 14 GUARDS • TELEPORT + SOUND
--- ANTI EGG = COORDINATE TELEPORT + 1s AUTO WALK
--- NO TRACKSTART
--- ANTI DUPE • MOBILE/PC DRAG • MINI
--- CONTINUOUS TEXT SHINE • RESPAWN SAFE
---==============================================================
+--========================================================
+-- ZYNTRIX PRIME • TRACKSTART MINI V6
+-- THUMBNAIL ICON | HIDE / SHOW | MOBILE
+-- TELE 1 → 2 | TELE 3 CYCLE
+--========================================================
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
 
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
 
-local GUI_NAME = "ZyntrixPrimeLibrary"
-
---==============================================================
+--========================================================
 -- CONFIG
---==============================================================
+--========================================================
 
-local THUMBNAIL_ID = "111102924856481"
+local THUMBNAIL_ID = "YOUR_THUMBNAIL_ID"
 
-local THUMBNAIL =
-	"rbxthumb://type=Asset&id="
-	.. THUMBNAIL_ID
-	.. "&w=420&h=420"
+local FIRST_POSITION = Vector3.new(549, 71, -364)
+local THIRD_POSITION = Vector3.new(574, 71, -362)
 
--- MAP TELEPORT SOUND
-local MAP_SOUND_ID = "124934430745275"
+local TRIGGER_DISTANCE = 10
+local STEPS = 18
 
--- ANTI EGG SOUND
-local ANTI_EGG_SOUND_ID = "74715602103425"
+local CYAN = Color3.fromRGB(0, 212, 255)
+local DARK = Color3.fromRGB(7, 12, 23)
 
--- ANTI EGG TARGET
-local ANTI_EGG_POSITION = Vector3.new(
-	549,
-	71,
-	-364
+local enabled = false
+local busy = false
+local closed = false
+local tele3Step = 1
+
+--========================================================
+-- CLEAN OLD UI
+--========================================================
+
+local old = PG:FindFirstChild("ZyntrixTrackMini")
+if old then
+    old:Destroy()
+end
+
+--========================================================
+-- CHARACTER
+--========================================================
+
+local function GetParts()
+    local char = LP.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    if hum and root and hum.Health > 0 then
+        return char, hum, root
+    end
+end
+
+local function TeleportFirst()
+    local char = GetParts()
+    if not char then return false end
+
+    char:PivotTo(CFrame.new(FIRST_POSITION))
+    return true
+end
+
+local function TeleportThird()
+    local char = GetParts()
+    if not char then return false end
+
+    char:PivotTo(CFrame.new(THIRD_POSITION))
+    return true
+end
+
+--========================================================
+-- FIND TARGET
+--========================================================
+
+local function FindNamedTarget(name)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == name then
+            if obj:IsA("BasePart") then
+                return obj
+            elseif obj:IsA("Model") then
+                local part = obj.PrimaryPart
+                    or obj:FindFirstChildWhichIsA(
+                        "BasePart", true
+                    )
+                if part then
+                    return part
+                end
+            end
+        end
+    end
+end
+
+local function FindTrackStart()
+    return FindNamedTarget("TrackStart")
+end
+
+--========================================================
+-- SMOOTH TELEPORT
+--========================================================
+
+local function SmoothTeleport(target)
+    if busy then return false end
+    busy = true
+
+    local char, hum, root = GetParts()
+
+    if not char then
+        busy = false
+        return false
+    end
+
+    local start = root.Position
+    local rotation = root.CFrame.Rotation
+
+    for i = 1, STEPS do
+        if closed or not char.Parent
+        or not root.Parent or hum.Health <= 0 then
+            busy = false
+            return false
+        end
+
+        local a = i / STEPS
+        local eased = a * a * (3 - 2 * a)
+        local pos = start:Lerp(target, eased)
+
+        char:PivotTo(CFrame.new(pos) * rotation)
+        RunService.Heartbeat:Wait()
+    end
+
+    busy = false
+    return true
+end
+
+--========================================================
+-- GUI
+--========================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ZyntrixTrackMini"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 99
+gui.Parent = PG
+
+--========================================================
+-- MAIN FRAME
+--========================================================
+
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.fromOffset(178, 116)
+main.Position = UDim2.new(0.5, -89, 0.3, 0)
+main.BackgroundColor3 = DARK
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
+
+Instance.new("UICorner", main).CornerRadius =
+    UDim.new(0, 10)
+
+--========================================================
+-- NEON BORDER
+--========================================================
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1.5
+stroke.Color = CYAN
+stroke.Transparency = 0.05
+stroke.Parent = main
+
+local borderGradient = Instance.new("UIGradient")
+borderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(
+        0, Color3.fromRGB(0, 60, 110)
+    ),
+    ColorSequenceKeypoint.new(0.35, CYAN),
+    ColorSequenceKeypoint.new(
+        0.5, Color3.new(1, 1, 1)
+    ),
+    ColorSequenceKeypoint.new(0.65, CYAN),
+    ColorSequenceKeypoint.new(
+        1, Color3.fromRGB(0, 60, 110)
+    )
+})
+borderGradient.Parent = stroke
+
+local borderTween = TweenService:Create(
+    borderGradient,
+    TweenInfo.new(
+        2.8, Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut, -1
+    ),
+    {Rotation = 360}
 )
+borderTween:Play()
 
-local ANTI_EGG_WALK_DELAY = 1
-local ANTI_EGG_ARRIVE_DISTANCE = 5
-local ANTI_EGG_WALK_REFRESH = 0.12
+local pulseTween = TweenService:Create(
+    stroke,
+    TweenInfo.new(
+        1.2, Enum.EasingStyle.Sine,
+        Enum.EasingDirection.InOut, -1, true
+    ),
+    {Thickness = 2.2, Transparency = 0.2}
+)
+pulseTween:Play()
 
---==============================================================
--- ANTI DUPE
---==============================================================
+--========================================================
+-- TEXT SHINE
+--========================================================
 
-local Old = PlayerGui:FindFirstChild(GUI_NAME)
+local function AddTextShine(label)
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CYAN),
+        ColorSequenceKeypoint.new(0.38, CYAN),
+        ColorSequenceKeypoint.new(
+            0.5, Color3.new(1, 1, 1)
+        ),
+        ColorSequenceKeypoint.new(0.62, CYAN),
+        ColorSequenceKeypoint.new(1, CYAN)
+    })
 
-if Old then
-	Old:Destroy()
+    grad.Offset = Vector2.new(-1, 0)
+    grad.Parent = label
+
+    local tween = TweenService:Create(
+        grad,
+        TweenInfo.new(
+            2.2, Enum.EasingStyle.Linear,
+            Enum.EasingDirection.InOut, -1
+        ),
+        {Offset = Vector2.new(1, 0)}
+    )
+    tween:Play()
 end
 
---==============================================================
--- SCREEN GUI
---==============================================================
-
-local ScreenGui = Instance.new("ScreenGui")
-
-ScreenGui.Name = GUI_NAME
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999
-ScreenGui.Parent = PlayerGui
-
---==============================================================
--- CONTINUOUS TEXT SHINE
---==============================================================
-
-local function ContinuousShine(TextObject, BaseColor, ShineColor, Speed)
-
-	local Gradient = Instance.new("UIGradient")
-	Gradient.Parent = TextObject
-
-	Gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, BaseColor),
-		ColorSequenceKeypoint.new(0.40, BaseColor),
-		ColorSequenceKeypoint.new(0.47, ShineColor),
-		ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255,255,255)),
-		ColorSequenceKeypoint.new(0.53, ShineColor),
-		ColorSequenceKeypoint.new(0.60, BaseColor),
-		ColorSequenceKeypoint.new(1, BaseColor)
-	})
-
-	Gradient.Offset = Vector2.new(-1, 0)
-
-	task.spawn(function()
-
-		while TextObject.Parent do
-
-			Gradient.Offset = Vector2.new(-1, 0)
-
-			local Tween = TweenService:Create(
-				Gradient,
-				TweenInfo.new(
-					Speed or 1.5,
-					Enum.EasingStyle.Linear
-				),
-				{
-					Offset = Vector2.new(1, 0)
-				}
-			)
-
-			Tween:Play()
-			Tween.Completed:Wait()
-
-		end
-
-	end)
-
-	return Gradient
-end
-
---==============================================================
--- CHARACTER STATE
---==============================================================
-
-local Character
-local Humanoid
-local Root
-
-local IsDead = false
-local Closed = false
-
-local AntiEggWalking = false
-local AntiEggToken = 0
-
-local AntiEggWalkConnection
-local DeathConnection
-local CharacterConnection
-
---==============================================================
--- CHARACTER SETUP
---==============================================================
-
-local function SetupCharacter(Char)
-
-	Character = Char
-
-	Humanoid = Char:WaitForChild(
-		"Humanoid",
-		8
-	)
-
-	Root = Char:WaitForChild(
-		"HumanoidRootPart",
-		8
-	)
-
-	if not Humanoid or not Root then
-		return false
-	end
-
-	IsDead = false
-
-	return true
-end
-
---==============================================================
--- MAIN
---==============================================================
-
-local Main = Instance.new("Frame")
-
-Main.Name = "Main"
-Main.Parent = ScreenGui
-Main.Size = UDim2.new(0,245,0,335)
-Main.Position = UDim2.new(0.05,0,0.5,-167)
-
-Main.BackgroundColor3 =
-	Color3.fromRGB(7,11,20)
-
-Main.BackgroundTransparency = 0.03
-Main.BorderSizePixel = 0
-Main.ClipsDescendants = true
-Main.Active = true
-
-local MainCorner = Instance.new("UICorner")
-
-MainCorner.CornerRadius =
-	UDim.new(0,15)
-
-MainCorner.Parent = Main
-
-local MainStroke = Instance.new("UIStroke")
-
-MainStroke.Parent = Main
-MainStroke.Color =
-	Color3.fromRGB(0,190,255)
-
-MainStroke.Thickness = 1.5
-MainStroke.Transparency = 0.25
-
---==============================================================
--- HEADER
---==============================================================
-
-local Header = Instance.new("Frame")
-
-Header.Name = "Header"
-Header.Parent = Main
-Header.Size = UDim2.new(1,0,0,48)
-
-Header.BackgroundColor3 =
-	Color3.fromRGB(12,20,35)
-
-Header.BorderSizePixel = 0
-
-local HeaderCorner = Instance.new("UICorner")
-
-HeaderCorner.CornerRadius =
-	UDim.new(0,15)
-
-HeaderCorner.Parent = Header
-
---==============================================================
--- LOGO
---==============================================================
-
-local Logo = Instance.new("ImageLabel")
-
-Logo.Name = "Logo"
-Logo.Parent = Header
-
-Logo.BackgroundTransparency = 1
-Logo.Position = UDim2.new(0,8,0,7)
-Logo.Size = UDim2.new(0,34,0,34)
-
-Logo.Image = THUMBNAIL
-Logo.ScaleType = Enum.ScaleType.Fit
-
-local LogoCorner = Instance.new("UICorner")
-
-LogoCorner.CornerRadius =
-	UDim.new(0,9)
-
-LogoCorner.Parent = Logo
-
---==============================================================
+--========================================================
 -- TITLE
---==============================================================
+--========================================================
 
-local Title = Instance.new("TextLabel")
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -54, 0, 24)
+title.Position = UDim2.fromOffset(8, 1)
+title.BackgroundTransparency = 1
+title.Text = "ZYNTRIX PRIME"
+title.TextColor3 = CYAN
+title.TextSize = 12
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Active = true
+title.Parent = main
 
-Title.Name = "Title"
-Title.Parent = Header
+AddTextShine(title)
 
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0,48,0,5)
-Title.Size = UDim2.new(1,-95,0,20)
+--========================================================
+-- CLOSE BUTTON
+--========================================================
 
-Title.Text = "Steal An Egg"
-Title.TextColor3 =
-	Color3.fromRGB(240,250,255)
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(24, 23)
+close.Position = UDim2.new(1, -25, 0, 1)
+close.BackgroundTransparency = 1
+close.Text = "×"
+close.TextColor3 = Color3.new(1, 1, 1)
+close.TextSize = 19
+close.Font = Enum.Font.GothamBold
+close.Parent = main
 
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
-Title.TextXAlignment = Enum.TextXAlignment.Left
+--========================================================
+-- HIDE BUTTON
+--========================================================
 
-ContinuousShine(
-	Title,
-	Color3.fromRGB(240,250,255),
-	Color3.fromRGB(0,220,255),
-	1.5
+local hide = Instance.new("TextButton")
+hide.Size = UDim2.fromOffset(22, 23)
+hide.Position = UDim2.new(1, -48, 0, 1)
+hide.BackgroundTransparency = 1
+hide.Text = "−"
+hide.TextColor3 = CYAN
+hide.TextSize = 19
+hide.Font = Enum.Font.GothamBold
+hide.Parent = main
+
+--========================================================
+-- FLOATING THUMBNAIL ICON
+--========================================================
+
+local icon = Instance.new("ImageButton")
+icon.Name = "ThumbnailToggle"
+icon.Size = UDim2.fromOffset(48, 48)
+icon.Position = UDim2.new(0, 18, 0.5, -24)
+icon.BackgroundColor3 = DARK
+icon.BorderSizePixel = 0
+icon.Image = "rbxassetid://" .. THUMBNAIL_ID
+icon.ScaleType = Enum.ScaleType.Crop
+icon.Visible = false
+icon.Active = true
+icon.AutoButtonColor = true
+icon.Parent = gui
+
+Instance.new("UICorner", icon).CornerRadius =
+    UDim.new(0, 14)
+
+local iconStroke = Instance.new("UIStroke")
+iconStroke.Color = CYAN
+iconStroke.Thickness = 2
+iconStroke.Parent = icon
+
+local iconGradient = Instance.new("UIGradient")
+iconGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, CYAN),
+    ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
+    ColorSequenceKeypoint.new(1, CYAN)
+})
+iconGradient.Parent = iconStroke
+
+local iconTween = TweenService:Create(
+    iconGradient,
+    TweenInfo.new(
+        2, Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut, -1
+    ),
+    {Rotation = 360}
+)
+iconTween:Play()
+
+--========================================================
+-- STATUS
+--========================================================
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -12, 0, 15)
+status.Position = UDim2.fromOffset(6, 24)
+status.BackgroundTransparency = 1
+status.Text = "READY • 2 TELEPORT"
+status.TextColor3 = Color3.fromRGB(175, 205, 220)
+status.TextSize = 9
+status.Font = Enum.Font.Gotham
+status.Parent = main
+
+--========================================================
+-- BUTTON CREATOR
+--========================================================
+
+local function MakeButton(name, text, y, color)
+    local b = Instance.new("TextButton")
+    b.Name = name
+    b.Size = UDim2.new(1, -12, 0, 29)
+    b.Position = UDim2.fromOffset(6, y)
+    b.BackgroundColor3 = color
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 10
+    b.Font = Enum.Font.GothamBold
+    b.AutoButtonColor = true
+    b.Parent = main
+
+    Instance.new("UICorner", b).CornerRadius =
+        UDim.new(0, 6)
+
+    local bs = Instance.new("UIStroke")
+    bs.Color = Color3.fromRGB(0, 150, 200)
+    bs.Thickness = 0.8
+    bs.Transparency = 0.2
+    bs.Parent = b
+
+    AddTextShine(b)
+    return b
+end
+
+local tele12 = MakeButton(
+    "Teleport1And2",
+    "TELE 1 → 2 • START",
+    43,
+    Color3.fromRGB(0, 75, 112)
 )
 
-local Subtitle = Instance.new("TextLabel")
-
-Subtitle.Name = "Subtitle"
-Subtitle.Parent = Header
-
-Subtitle.BackgroundTransparency = 1
-Subtitle.Position = UDim2.new(0,48,0,27)
-Subtitle.Size = UDim2.new(1,-95,0,12)
-
-Subtitle.Text = "By Zyntrix_Vn"
-Subtitle.TextColor3 =
-	Color3.fromRGB(85,140,170)
-
-Subtitle.Font = Enum.Font.GothamMedium
-Subtitle.TextSize = 7
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-
---==============================================================
--- MINIMIZE
---==============================================================
-
-local Minimize = Instance.new("TextButton")
-
-Minimize.Name = "Minimize"
-Minimize.Parent = Header
-
-Minimize.Size = UDim2.new(0,30,0,28)
-Minimize.Position = UDim2.new(1,-38,0.5,-14)
-
-Minimize.BackgroundColor3 =
-	Color3.fromRGB(16,42,60)
-
-Minimize.BorderSizePixel = 0
-Minimize.Text = "−"
-
-Minimize.TextColor3 =
-	Color3.fromRGB(110,220,255)
-
-Minimize.Font = Enum.Font.GothamBold
-Minimize.TextSize = 18
-Minimize.AutoButtonColor = false
-
-local MinCorner = Instance.new("UICorner")
-
-MinCorner.CornerRadius =
-	UDim.new(0,8)
-
-MinCorner.Parent = Minimize
-
---==============================================================
--- TAB BAR
---==============================================================
-
-local Tabs = Instance.new("Frame")
-
-Tabs.Name = "Tabs"
-Tabs.Parent = Main
-
-Tabs.BackgroundTransparency = 1
-Tabs.Position = UDim2.new(0,8,0,55)
-Tabs.Size = UDim2.new(1,-16,0,38)
-
---==============================================================
--- MAP TAB
---==============================================================
-
-local MapTab = Instance.new("TextButton")
-
-MapTab.Name = "MapTab"
-MapTab.Parent = Tabs
-
-MapTab.Size =
-	UDim2.new(0.5,-3,1,0)
-
-MapTab.BackgroundColor3 =
-	Color3.fromRGB(0,125,180)
-
-MapTab.BorderSizePixel = 0
-MapTab.Text = "MAP"
-
-MapTab.TextColor3 =
-	Color3.fromRGB(255,255,255)
-
-MapTab.Font = Enum.Font.GothamBold
-MapTab.TextSize = 10
-MapTab.AutoButtonColor = false
-
-local MapCorner = Instance.new("UICorner")
-
-MapCorner.CornerRadius =
-	UDim.new(0,9)
-
-MapCorner.Parent = MapTab
-
---==============================================================
--- ANTI EGG TAB
---==============================================================
-
-local AntiEggTab = Instance.new("TextButton")
-
-AntiEggTab.Name = "AntiEggTab"
-AntiEggTab.Parent = Tabs
-
-AntiEggTab.Size =
-	UDim2.new(0.5,-3,1,0)
-
-AntiEggTab.Position =
-	UDim2.new(0.5,3,0,0)
-
-AntiEggTab.BackgroundColor3 =
-	Color3.fromRGB(18,27,40)
-
-AntiEggTab.BorderSizePixel = 0
-
-AntiEggTab.Text = " ANTI EGG"
-
-AntiEggTab.TextColor3 =
-	Color3.fromRGB(120,155,175)
-
-AntiEggTab.Font = Enum.Font.GothamBold
-AntiEggTab.TextSize = 10
-AntiEggTab.AutoButtonColor = false
-
-local EggCorner = Instance.new("UICorner")
-
-EggCorner.CornerRadius =
-	UDim.new(0,9)
-
-EggCorner.Parent = AntiEggTab
-
---==============================================================
--- CONTENT
---==============================================================
-
-local Content = Instance.new("Frame")
-
-Content.Name = "Content"
-Content.Parent = Main
-
-Content.BackgroundTransparency = 1
-Content.Position = UDim2.new(0,8,0,100)
-Content.Size = UDim2.new(1,-16,1,-108)
-
---==============================================================
--- MAP PAGE
---==============================================================
-
-local MapPage = Instance.new("ScrollingFrame")
-
-MapPage.Name = "MapPage"
-MapPage.Parent = Content
-
-MapPage.Size = UDim2.new(1,0,1,0)
-
-MapPage.BackgroundTransparency = 1
-MapPage.BorderSizePixel = 0
-
-MapPage.ScrollBarThickness = 2
-MapPage.ScrollBarImageColor3 =
-	Color3.fromRGB(0,190,255)
-
-MapPage.AutomaticCanvasSize =
-	Enum.AutomaticSize.Y
-
-MapPage.CanvasSize =
-	UDim2.new(0,0,0,0)
-
-MapPage.Visible = true
-
-MapPage.ScrollingDirection =
-	Enum.ScrollingDirection.Y
-
-local MapLayout = Instance.new("UIListLayout")
-
-MapLayout.Parent = MapPage
-
-MapLayout.Padding =
-	UDim.new(0,6)
-
-MapLayout.SortOrder =
-	Enum.SortOrder.LayoutOrder
-
---==============================================================
--- ANTI EGG PAGE
---==============================================================
-
-local AntiEggPage = Instance.new("Frame")
-
-AntiEggPage.Name = "AntiEggPage"
-AntiEggPage.Parent = Content
-
-AntiEggPage.Size =
-	UDim2.new(1,0,1,0)
-
-AntiEggPage.BackgroundTransparency = 1
-AntiEggPage.Visible = false
-
---==============================================================
--- MAP TELEPORT SOUND
---==============================================================
-
-local MapTeleportSound = Instance.new("Sound")
-
-MapTeleportSound.Name =
-	"MapTeleportSound"
-
-MapTeleportSound.SoundId =
-	"rbxassetid://" ..
-	MAP_SOUND_ID
-
-MapTeleportSound.Volume = 1
-MapTeleportSound.Parent = Main
-
---==============================================================
--- ANTI EGG SOUND
---==============================================================
-
-local AntiEggSound = Instance.new("Sound")
-
-AntiEggSound.Name =
-	"AntiEggSound"
-
-AntiEggSound.SoundId =
-	"rbxassetid://" ..
-	ANTI_EGG_SOUND_ID
-
-AntiEggSound.Volume = 1
-AntiEggSound.Parent = Main
-
---==============================================================
--- FIND GUARD
---==============================================================
-
-local function FindGuard(PathParts)
-
-	local Current = Workspace
-
-	for _, Name in ipairs(PathParts) do
-
-		if not Current then
-			return nil
-		end
-
-		Current = Current:FindFirstChild(Name)
-
-	end
-
-	if not Current then
-		return nil
-	end
-
-	if Current:IsA("BasePart") then
-		return Current
-	end
-
-	if Current:IsA("Attachment")
-		and Current.Parent
-		and Current.Parent:IsA("BasePart") then
-
-		return Current.Parent
-	end
-
-	if Current:IsA("Model") then
-
-		if Current.PrimaryPart then
-			return Current.PrimaryPart
-		end
-
-		local Part =
-			Current:FindFirstChildWhichIsA(
-				"BasePart",
-				true
-			)
-
-		if Part then
-			return Part
-		end
-	end
-
-	return nil
-end
-
---==============================================================
--- MAP GUARDS
---==============================================================
-
-local MapGuards = {
-
-	{
-		Name = "Abyss Ocean",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Abyss Ocean",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Cherry Blossom",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Cherry Blossom",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Cosmic",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Cosmic",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Desert",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Desert",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Forest",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Forest",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Jungle",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Jungle",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Lake",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Lake",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Prehistoric",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Prehistoric",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Snow",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Snow",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Volcano",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Volcano",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Titan Temple",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Titan Temple",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Light Dark • Prehistoric",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Prehistoric",
-			"Light Dark",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Light Dark",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Light Dark",
-			"Guard"
-		}
-	},
-
-	{
-		Name = "Enchanted Forest",
-		Path = {
-			"World",
-			"Areas",
-			"GuardAreas",
-			"Enchanted Forest",
-			"Guard"
-		}
-	}
-
-}
-
---==============================================================
--- MAP TELEPORT
---==============================================================
-
-local function TeleportToGuard(Data, Button, StatusLabel)
-
-	if Closed then
-		return
-	end
-
-	if not Character
-		or not Character.Parent
-		or not Humanoid
-		or Humanoid.Health <= 0
-		or not Root
-		or not Root.Parent then
-
-		if StatusLabel then
-			StatusLabel.Text = "CHARACTER NOT READY"
-		end
-
-		return
-	end
-
-	local Guard =
-		FindGuard(Data.Path)
-
-	if not Guard then
-
-		if StatusLabel then
-			StatusLabel.Text =
-				"GUARD NOT FOUND"
-		end
-
-		if Button then
-			TweenService:Create(
-				Button,
-				TweenInfo.new(0.12),
-				{
-					BackgroundColor3 =
-						Color3.fromRGB(80,25,35)
-				}
-			):Play()
-
-			task.delay(0.3,function()
-
-				if Button and Button.Parent then
-
-					TweenService:Create(
-						Button,
-						TweenInfo.new(0.15),
-						{
-							BackgroundColor3 =
-								Color3.fromRGB(13,22,36)
-						}
-					):Play()
-
-				end
-
-			end)
-		end
-
-		return
-	end
-
-	-- STOP ANTI EGG WALK
-	AntiEggToken += 1
-	AntiEggWalking = false
-
-	if AntiEggWalkConnection then
-		AntiEggWalkConnection:Disconnect()
-		AntiEggWalkConnection = nil
-	end
-
-	-- TELEPORT
-	local Success =
-		pcall(function()
-
-			Root.CFrame =
-				Guard.CFrame
-				+ Vector3.new(0,3,0)
-
-		end)
-
-	if Success then
-
-		pcall(function()
-
-			MapTeleportSound:Stop()
-			MapTeleportSound.TimePosition = 0
-			MapTeleportSound:Play()
-
-		end)
-
-		if StatusLabel then
-			StatusLabel.Text = "TELEPORTED"
-		end
-
-		TweenService:Create(
-			Button,
-			TweenInfo.new(0.08),
-			{
-				BackgroundColor3 =
-					Color3.fromRGB(20,55,75)
-			}
-		):Play()
-
-		task.delay(0.12,function()
-
-			if Button and Button.Parent then
-
-				TweenService:Create(
-					Button,
-					TweenInfo.new(0.15),
-					{
-						BackgroundColor3 =
-							Color3.fromRGB(13,22,36)
-					}
-				):Play()
-
-			end
-
-		end)
-
-	else
-
-		if StatusLabel then
-			StatusLabel.Text =
-				"TELEPORT ERROR"
-		end
-
-	end
-end
-
---==============================================================
--- CREATE MAP BUTTON
---==============================================================
-
-local function CreateFunctionButton(Data, Number)
-
-	local Button = Instance.new("TextButton")
-
-	Button.Name =
-		"MapFunction_" .. Number
-
-	Button.Parent = MapPage
-
-	Button.Size =
-		UDim2.new(1,-3,0,42)
-
-	Button.LayoutOrder = Number
-
-	Button.BackgroundColor3 =
-		Color3.fromRGB(13,22,36)
-
-	Button.BorderSizePixel = 0
-
-	Button.Text = ""
-	Button.AutoButtonColor = false
-
-	local Corner = Instance.new("UICorner")
-
-	Corner.CornerRadius =
-		UDim.new(0,10)
-
-	Corner.Parent = Button
-
-	local Stroke = Instance.new("UIStroke")
-
-	Stroke.Parent = Button
-
-	Stroke.Color =
-		Color3.fromRGB(0,170,230)
-
-	Stroke.Thickness = 1
-	Stroke.Transparency = 0.55
-
-	-- NUMBER
-	local NumberLabel = Instance.new("TextLabel")
-
-	NumberLabel.Name = "Number"
-	NumberLabel.Parent = Button
-
-	NumberLabel.BackgroundTransparency = 1
-	NumberLabel.Position =
-		UDim2.new(0,10,0,0)
-
-	NumberLabel.Size =
-		UDim2.new(0,27,1,0)
-
-	NumberLabel.Text =
-		string.format("%02d",Number)
-
-	NumberLabel.TextColor3 =
-		Color3.fromRGB(0,195,255)
-
-	NumberLabel.Font =
-		Enum.Font.GothamBold
-
-	NumberLabel.TextSize = 9
-
-	-- LABEL
-	local Label = Instance.new("TextLabel")
-
-	Label.Name = "Label"
-	Label.Parent = Button
-
-	Label.BackgroundTransparency = 1
-	Label.Position =
-		UDim2.new(0,45,0,0)
-
-	Label.Size =
-		UDim2.new(1,-55,1,0)
-
-	Label.Text = Data.Name
-
-	Label.TextColor3 =
-		Color3.fromRGB(235,245,255)
-
-	Label.Font =
-		Enum.Font.GothamSemibold
-
-	Label.TextSize = 10
-
-	Label.TextXAlignment =
-		Enum.TextXAlignment.Left
-
-	ContinuousShine(
-		Label,
-		Color3.fromRGB(235,245,255),
-		Color3.fromRGB(0,220,255),
-		1.35
-	)
-
-	-- STATUS
-	local StatusLabel = Instance.new("TextLabel")
-
-	StatusLabel.Name = "Status"
-
-	StatusLabel.Parent = Button
-
-	StatusLabel.BackgroundTransparency = 1
-
-	StatusLabel.Position =
-		UDim2.new(1,-82,0,0)
-
-	StatusLabel.Size =
-		UDim2.new(0,70,1,0)
-
-	StatusLabel.Text = ""
-
-	StatusLabel.TextColor3 =
-		Color3.fromRGB(0,220,255)
-
-	StatusLabel.Font =
-		Enum.Font.GothamMedium
-
-	StatusLabel.TextSize = 6
-
-	StatusLabel.TextXAlignment =
-		Enum.TextXAlignment.Right
-
-	-- HOVER
-	Button.MouseEnter:Connect(function()
-
-		TweenService:Create(
-			Stroke,
-			TweenInfo.new(0.15),
-			{
-				Transparency = 0.05
-			}
-		):Play()
-
-	end)
-
-	Button.MouseLeave:Connect(function()
-
-		TweenService:Create(
-			Stroke,
-			TweenInfo.new(0.15),
-			{
-				Transparency = 0.55
-			}
-		):Play()
-
-	end)
-
-	-- CLICK
-	Button.Activated:Connect(function()
-
-		TeleportToGuard(
-			Data,
-			Button,
-			StatusLabel
-		)
-
-	end)
-end
-
---==============================================================
--- CREATE 14 MAP BUTTONS
---==============================================================
-
-for i, Data in ipairs(MapGuards) do
-
-	CreateFunctionButton(
-		Data,
-		i
-	)
-
-end
-
---==============================================================
--- ANTI EGG CARD
---==============================================================
-
-local EggCard = Instance.new("Frame")
-
-EggCard.Name = "AntiEggCard"
-EggCard.Parent = AntiEggPage
-
-EggCard.Size =
-	UDim2.new(1,0,0,145)
-
-EggCard.Position =
-	UDim2.new(0,0,0,8)
-
-EggCard.BackgroundColor3 =
-	Color3.fromRGB(13,22,36)
-
-EggCard.BorderSizePixel = 0
-
-local EggCardCorner = Instance.new("UICorner")
-
-EggCardCorner.CornerRadius =
-	UDim.new(0,12)
-
-EggCardCorner.Parent = EggCard
-
-local EggStroke = Instance.new("UIStroke")
-
-EggStroke.Parent = EggCard
-
-EggStroke.Color =
-	Color3.fromRGB(255,170,55)
-
-EggStroke.Thickness = 1
-EggStroke.Transparency = 0.35
-
---==============================================================
--- ANTI EGG THUMBNAIL
---==============================================================
-
-local EggIcon = Instance.new("ImageLabel")
-
-EggIcon.Name = "Thumbnail"
-EggIcon.Parent = EggCard
-
-EggIcon.BackgroundTransparency = 1
-
-EggIcon.Position =
-	UDim2.new(0,10,0,10)
-
-EggIcon.Size =
-	UDim2.new(0,42,0,42)
-
-EggIcon.Image = THUMBNAIL
-EggIcon.ScaleType = Enum.ScaleType.Fit
-
-local EggIconCorner = Instance.new("UICorner")
-
-EggIconCorner.CornerRadius =
-	UDim.new(0,9)
-
-EggIconCorner.Parent = EggIcon
-
---==============================================================
--- ANTI EGG TITLE
---==============================================================
-
-local EggTitle = Instance.new("TextLabel")
-
-EggTitle.Name = "Title"
-EggTitle.Parent = EggCard
-
-EggTitle.BackgroundTransparency = 1
-
-EggTitle.Position =
-	UDim2.new(0,62,0,12)
-
-EggTitle.Size =
-	UDim2.new(1,-72,0,20)
-
-EggTitle.Text = "ANTI EGG"
-
-EggTitle.TextColor3 =
-	Color3.fromRGB(255,220,130)
-
-EggTitle.Font =
-	Enum.Font.GothamBold
-
-EggTitle.TextSize = 13
-
-EggTitle.TextXAlignment =
-	Enum.TextXAlignment.Left
-
-ContinuousShine(
-	EggTitle,
-	Color3.fromRGB(255,220,130),
-	Color3.fromRGB(255,255,255),
-	1.4
+local tele3 = MakeButton(
+    "Teleport3",
+    "TELE 3 • ĐIỂM 2",
+    77,
+    Color3.fromRGB(0, 105, 145)
 )
 
---==============================================================
--- SUBTITLE
---==============================================================
-
-local EggSub = Instance.new("TextLabel")
-
-EggSub.Name = "Subtitle"
-EggSub.Parent = EggCard
-
-EggSub.BackgroundTransparency = 1
-
-EggSub.Position =
-	UDim2.new(0,62,0,35)
-
-EggSub.Size =
-	UDim2.new(1,-72,0,15)
-
-EggSub.Text =
-	"TELE • 1s • AUTO WALK"
-
-EggSub.TextColor3 =
-	Color3.fromRGB(120,150,170)
-
-EggSub.Font =
-	Enum.Font.GothamMedium
-
-EggSub.TextSize = 8
-
-EggSub.TextXAlignment =
-	Enum.TextXAlignment.Left
-
---==============================================================
--- COORDINATE LABEL
---==============================================================
-
-local CoordLabel = Instance.new("TextLabel")
-
-CoordLabel.Name = "Coordinates"
-CoordLabel.Parent = EggCard
-
-CoordLabel.BackgroundTransparency = 1
-
-CoordLabel.Position =
-	UDim2.new(0,10,0,62)
-
-CoordLabel.Size =
-	UDim2.new(1,-20,0,18)
-
-CoordLabel.Text =
-	"X 549  •  Y 71  •  Z -364"
-
-CoordLabel.TextColor3 =
-	Color3.fromRGB(0,210,255)
-
-CoordLabel.Font =
-	Enum.Font.GothamBold
-
-CoordLabel.TextSize = 9
-CoordLabel.TextXAlignment =
-	Enum.TextXAlignment.Center
-
---==============================================================
--- ANTI EGG STATUS
---==============================================================
-
-local EggStatus = Instance.new("TextLabel")
-
-EggStatus.Name = "Status"
-EggStatus.Parent = EggCard
-
-EggStatus.BackgroundTransparency = 1
-
-EggStatus.Position =
-	UDim2.new(0,10,0,82)
-
-EggStatus.Size =
-	UDim2.new(1,-20,0,15)
-
-EggStatus.Text =
-	"READY"
-
-EggStatus.TextColor3 =
-	Color3.fromRGB(160,225,240)
-
-EggStatus.Font =
-	Enum.Font.GothamMedium
-
-EggStatus.TextSize = 8
-EggStatus.TextXAlignment =
-	Enum.TextXAlignment.Center
-
---==============================================================
--- ANTI EGG BUTTON
---==============================================================
-
-local EggToggle =
-	Instance.new("TextButton")
-
-EggToggle.Name = "Toggle"
-EggToggle.Parent = EggCard
-
-EggToggle.Size =
-	UDim2.new(1,-20,0,29)
-
-EggToggle.Position =
-	UDim2.new(0,10,1,-39)
-
-EggToggle.BackgroundColor3 =
-	Color3.fromRGB(25,38,52)
-
-EggToggle.BorderSizePixel = 0
-
-EggToggle.Text =
-	"ANTI EGG"
-
-EggToggle.TextColor3 =
-	Color3.fromRGB(225,245,255)
-
-EggToggle.Font =
-	Enum.Font.GothamBold
-
-EggToggle.TextSize = 9
-
-EggToggle.AutoButtonColor = false
-
-local EggToggleCorner = Instance.new("UICorner")
-
-EggToggleCorner.CornerRadius =
-	UDim.new(0,8)
-
-EggToggleCorner.Parent = EggToggle
-
---==============================================================
--- STOP ANTI EGG WALK
---==============================================================
-
-local function StopAntiEggWalk()
-
-	AntiEggWalking = false
-
-	if AntiEggWalkConnection then
-
-		AntiEggWalkConnection:Disconnect()
-		AntiEggWalkConnection = nil
-
-	end
-
-	if Humanoid
-		and Humanoid.Parent
-		and Humanoid.Health > 0 then
-
-		pcall(function()
-
-			Humanoid:Move(
-				Vector3.zero,
-				false
-			)
-
-		end)
-	end
-end
-
---==============================================================
--- START ANTI EGG WALK
---==============================================================
-
-local function StartAntiEggWalk(MyToken)
-
-	if Closed
-		or IsDead
-		or MyToken ~= AntiEggToken then
-
-		return
-	end
-
-	if not Character
-		or not Character.Parent
-		or not Humanoid
-		or Humanoid.Health <= 0
-		or not Root
-		or not Root.Parent then
-
-		return
-	end
-
-	StopAntiEggWalk()
-
-	AntiEggWalking = true
-
-	EggStatus.Text =
-		"WALKING TO TARGET"
-
-	EggStatus.TextColor3 =
-		Color3.fromRGB(0,255,180)
-
-	EggToggle.Text =
-		"ANTI EGG • WALKING"
-
-	local LastUpdate = 0
-
-	AntiEggWalkConnection =
-		RunService.Heartbeat:Connect(
-			function()
-
-				if Closed
-					or IsDead
-					or MyToken ~= AntiEggToken then
-
-					StopAntiEggWalk()
-					return
-				end
-
-				if not Character
-					or not Character.Parent
-					or not Humanoid
-					or Humanoid.Health <= 0
-					or not Root
-					or not Root.Parent then
-
-					StopAntiEggWalk()
-					return
-				end
-
-				local Distance =
-					(
-						Root.Position
-						- ANTI_EGG_POSITION
-					).Magnitude
-
-				if Distance <=
-					ANTI_EGG_ARRIVE_DISTANCE then
-
-					StopAntiEggWalk()
-
-					EggStatus.Text =
-						"ARRIVED • 549, 71, -364"
-
-					EggStatus.TextColor3 =
-						Color3.fromRGB(0,255,180)
-
-					EggToggle.Text =
-						"ANTI EGG • ARRIVED"
-
-					return
-				end
-
-				local Now = os.clock()
-
-				if Now - LastUpdate
-					>= ANTI_EGG_WALK_REFRESH then
-
-					LastUpdate = Now
-
-					pcall(function()
-
-						Humanoid:MoveTo(
-							ANTI_EGG_POSITION
-						)
-
-					end)
-				end
-			end
-		)
-end
-
---==============================================================
--- ACTIVATE ANTI EGG
--- TELEPORT -> SOUND -> 1s -> WALK
---==============================================================
-
-local function ActivateAntiEgg()
-
-	if Closed or IsDead then
-		return
-	end
-
-	if not Character
-		or not Character.Parent
-		or not Humanoid
-		or Humanoid.Health <= 0
-		or not Root
-		or not Root.Parent then
-
-		EggStatus.Text =
-			"CHARACTER NOT READY"
-
-		EggStatus.TextColor3 =
-			Color3.fromRGB(255,120,120)
-
-		return
-	end
-
-	AntiEggToken += 1
-
-	local MyToken =
-		AntiEggToken
-
-	StopAntiEggWalk()
-
-	--==========================================================
-	-- TELEPORT
-	--==========================================================
-
-	local Success =
-		pcall(function()
-
-			Root.CFrame =
-				CFrame.new(
-					ANTI_EGG_POSITION
-				)
-
-		end)
-
-	if not Success then
-
-		EggStatus.Text =
-			"TELEPORT ERROR"
-
-		EggStatus.TextColor3 =
-			Color3.fromRGB(255,120,120)
-
-		return
-	end
-
-	--==========================================================
-	-- SOUND
-	--==========================================================
-
-	pcall(function()
-
-		AntiEggSound:Stop()
-		AntiEggSound.TimePosition = 0
-		AntiEggSound:Play()
-
-	end)
-
-	--==========================================================
-	-- STATUS
-	--==========================================================
-
-	EggStatus.Text =
-		"TELEPORTED • WAIT 1s"
-
-	EggStatus.TextColor3 =
-		Color3.fromRGB(80,180,255)
-
-	EggToggle.Text =
-		"ANTI EGG • WAIT 1s"
-
-	TweenService:Create(
-		EggToggle,
-		TweenInfo.new(0.12),
-		{
-			BackgroundColor3 =
-				Color3.fromRGB(20,60,75)
-		}
-	):Play()
-
-	--==========================================================
-	-- WAIT 1 SECOND
-	--==========================================================
-
-	task.delay(
-		ANTI_EGG_WALK_DELAY,
-		function()
-
-			if Closed
-				or IsDead
-				or MyToken ~= AntiEggToken then
-
-				return
-			end
-
-			StartAntiEggWalk(
-				MyToken
-			)
-
-		end
-	)
-end
-
---==============================================================
--- ANTI EGG CLICK
---==============================================================
-
-EggToggle.Activated:Connect(function()
-
-	ActivateAntiEgg()
-
-end)
-
---==============================================================
--- TAB SWITCH
---==============================================================
-
-MapTab.Activated:Connect(function()
-
-	MapPage.Visible = true
-	AntiEggPage.Visible = false
-
-	MapTab.BackgroundColor3 =
-		Color3.fromRGB(0,125,180)
-
-	MapTab.TextColor3 =
-		Color3.fromRGB(255,255,255)
-
-	AntiEggTab.BackgroundColor3 =
-		Color3.fromRGB(18,27,40)
-
-	AntiEggTab.TextColor3 =
-		Color3.fromRGB(120,155,175)
-
-end)
-
-AntiEggTab.Activated:Connect(function()
-
-	MapPage.Visible = false
-	AntiEggPage.Visible = true
-
-	MapTab.BackgroundColor3 =
-		Color3.fromRGB(18,27,40)
-
-	MapTab.TextColor3 =
-		Color3.fromRGB(120,155,175)
-
-	AntiEggTab.BackgroundColor3 =
-		Color3.fromRGB(150,95,25)
-
-	AntiEggTab.TextColor3 =
-		Color3.fromRGB(255,235,180)
-
-end)
-
---==============================================================
--- MINI
---==============================================================
-
-local Mini = Instance.new("ImageButton")
-
-Mini.Name = "Mini"
-Mini.Parent = ScreenGui
-
-Mini.Size =
-	UDim2.new(0,46,0,46)
-
-Mini.Position =
-	UDim2.new(0.025,0,0.5,-23)
-
-Mini.BackgroundColor3 =
-	Color3.fromRGB(7,14,25)
-
-Mini.BorderSizePixel = 0
-
-Mini.Image = THUMBNAIL
-Mini.ScaleType = Enum.ScaleType.Fit
-
-Mini.Visible = false
-Mini.AutoButtonColor = false
-Mini.Active = true
-
-local MiniCorner = Instance.new("UICorner")
-
-MiniCorner.CornerRadius =
-	UDim.new(0,13)
-
-MiniCorner.Parent = Mini
-
-local MiniStroke = Instance.new("UIStroke")
-
-MiniStroke.Parent = Mini
-
-MiniStroke.Color =
-	Color3.fromRGB(0,200,255)
-
-MiniStroke.Thickness = 1.5
-MiniStroke.Transparency = 0.2
-
---==============================================================
--- DRAG
---==============================================================
-
-local function MakeDraggable(Object)
-
-	local Dragging = false
-	local DragStart
-	local StartPosition
-
-	Object.InputBegan:Connect(function(Input)
-
-		if Input.UserInputType ==
-			Enum.UserInputType.MouseButton1
-			or Input.UserInputType ==
-			Enum.UserInputType.Touch then
-
-			Dragging = true
-			DragStart = Input.Position
-			StartPosition = Object.Position
-
-			Input.Changed:Connect(function()
-
-				if Input.UserInputState ==
-					Enum.UserInputState.End then
-
-					Dragging = false
-
-				end
-
-			end)
-
-		end
-
-	end)
-
-	UserInputService.InputChanged:Connect(function(Input)
-
-		if not Dragging then
-			return
-		end
-
-		if Input.UserInputType ==
-			Enum.UserInputType.MouseMovement
-			or Input.UserInputType ==
-			Enum.UserInputType.Touch then
-
-			local Delta =
-				Input.Position
-				- DragStart
-
-			Object.Position =
-				UDim2.new(
-					StartPosition.X.Scale,
-					StartPosition.X.Offset
-						+ Delta.X,
-
-					StartPosition.Y.Scale,
-					StartPosition.Y.Offset
-						+ Delta.Y
-				)
-
-		end
-
-	end)
-end
-
-MakeDraggable(Main)
-MakeDraggable(Mini)
-
---==============================================================
--- HIDE / SHOW
---==============================================================
-
-local Open = true
-local SavedPosition = Main.Position
-
-Minimize.Activated:Connect(function()
-
-	if not Open then
-		return
-	end
-
-	Open = false
-
-	SavedPosition =
-		Main.Position
-
-	local HidePosition =
-		UDim2.new(
-			SavedPosition.X.Scale,
-			SavedPosition.X.Offset,
-
-			SavedPosition.Y.Scale,
-			SavedPosition.Y.Offset + 12
-		)
-
-	local T =
-		TweenService:Create(
-			Main,
-			TweenInfo.new(
-				0.22,
-				Enum.EasingStyle.Quint,
-				Enum.EasingDirection.In
-			),
-			{
-				Size =
-					UDim2.new(0,245,0,0),
-
-				Position =
-					HidePosition
-			}
-		)
-
-	T:Play()
-	T.Completed:Wait()
-
-	Main.Visible = false
-	Mini.Visible = true
-
-end)
-
-Mini.Activated:Connect(function()
-
-	if Open then
-		return
-	end
-
-	Open = true
-
-	Mini.Visible = false
-	Main.Visible = true
-
-	Main.Position =
-		SavedPosition
-
-	Main.Size =
-		UDim2.new(0,245,0,0)
-
-	TweenService:Create(
-		Main,
-		TweenInfo.new(
-			0.28,
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.Out
-		),
-		{
-			Size =
-				UDim2.new(0,245,0,335)
-		}
-	):Play()
-
-end)
-
---==============================================================
--- MINI GLOW
---==============================================================
-
-task.spawn(function()
-
-	while ScreenGui.Parent do
-
-		TweenService:Create(
-			MiniStroke,
-			TweenInfo.new(
-				0.9,
-				Enum.EasingStyle.Sine,
-				Enum.EasingDirection.InOut
-			),
-			{
-				Transparency = 0.65
-			}
-		):Play()
-
-		task.wait(0.9)
-
-		TweenService:Create(
-			MiniStroke,
-			TweenInfo.new(
-				0.9,
-				Enum.EasingStyle.Sine,
-				Enum.EasingDirection.InOut
-			),
-			{
-				Transparency = 0.12
-			}
-		):Play()
-
-		task.wait(0.9)
-
-	end
-
-end)
-
---==============================================================
--- DEATH
---==============================================================
-
-local function BindDeath()
-
-	if DeathConnection then
-
-		DeathConnection:Disconnect()
-		DeathConnection = nil
-
-	end
-
-	if not Humanoid then
-		return
-	end
-
-	DeathConnection =
-		Humanoid.Died:Connect(function()
-
-			IsDead = true
-
-			AntiEggToken += 1
-
-			StopAntiEggWalk()
-
-			pcall(function()
-
-				MapTeleportSound:Stop()
-				AntiEggSound:Stop()
-
-			end)
-
-			EggStatus.Text =
-				"DEAD • RESPAWN"
-
-			EggStatus.TextColor3 =
-				Color3.fromRGB(255,120,120)
-
-			EggToggle.Text =
-				"ANTI EGG • RESPAWN"
-
-		end)
-
-end
-
---==============================================================
--- INITIAL CHARACTER
---==============================================================
-
-local InitialCharacter =
-	Player.Character
-
-if InitialCharacter then
-
-	if SetupCharacter(
-		InitialCharacter
-	) then
-
-		BindDeath()
-
-	end
-
-else
-
-	local NewCharacter =
-		Player.CharacterAdded:Wait()
-
-	if SetupCharacter(
-		NewCharacter
-	) then
-
-		BindDeath()
-
-	end
-
-end
-
---==============================================================
--- RESPAWN SAFE
---==============================================================
-
-CharacterConnection =
-	Player.CharacterAdded:Connect(
-		function(NewCharacter)
-
-			if Closed then
-				return
-			end
-
-			AntiEggToken += 1
-
-			StopAntiEggWalk()
-
-			IsDead = true
-
-			pcall(function()
-
-				MapTeleportSound:Stop()
-				AntiEggSound:Stop()
-
-			end)
-
-			EggStatus.Text =
-				"DEAD • RESPAWN"
-
-			EggStatus.TextColor3 =
-				Color3.fromRGB(255,120,120)
-
-			EggToggle.Text =
-				"ANTI EGG • RESPAWN"
-
-			if DeathConnection then
-
-				DeathConnection:Disconnect()
-				DeathConnection = nil
-
-			end
-
-			task.wait(0.25)
-
-			if Closed then
-				return
-			end
-
-			local Success =
-				SetupCharacter(
-					NewCharacter
-				)
-
-			if not Success then
-
-				EggStatus.Text =
-					"CHARACTER ERROR"
-
-				EggStatus.TextColor3 =
-					Color3.fromRGB(255,120,120)
-
-				return
-			end
-
-			IsDead = false
-
-			BindDeath()
-
-			EggStatus.Text =
-				"READY • 549, 71, -364"
-
-			EggStatus.TextColor3 =
-				Color3.fromRGB(160,225,240)
-
-			EggToggle.Text =
-				"ANTI EGG"
-
-		end
-	)
-
---==============================================================
--- CLOSE
---==============================================================
-
--- Giữ nút minimize, không thêm nút Close riêng.
---==============================================================
-
---==============================================================
--- READY
---==============================================================
-
-EggStatus.Text =
-	"READY • 549, 71, -364"
-
-EggStatus.TextColor3 =
-	Color3.fromRGB(160,225,240)
-
-print("ZYNTRIX PRIME LIBRARY • LOADED")
-print("MAP • 14 GUARDS")
-print("MAP SOUND • " .. MAP_SOUND_ID)
-print("ANTI EGG • X549 Y71 Z-364")
-print("ANTI EGG SOUND • " .. ANTI_EGG_SOUND_ID)
-print("ANTI EGG • TELE -> 1s -> AUTO WALK")
---========================================================--
--- ZYNTRIX • FAST INTERACT
--- NO UI • NO AUTO • NO INFINITE JUMP
--- TỰ TAY TƯƠNG TÁC
---========================================================--
-
-local Players = game:GetService("Players")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-local StarterGui = game:GetService("StarterGui")
-
-local Player = Players.LocalPlayer
-
---========================================================--
--- FAST INTERACT
---========================================================--
-
-local function FastInteract(prompt)
-    if not prompt or not prompt:IsA("ProximityPrompt") then
-        return
-    end
-
-    if not prompt.Enabled then
-        return
-    end
-
-    -- Chỉ kích hoạt khi người chơi tự bắt đầu tương tác
-    pcall(function()
-        fireproximityprompt(prompt, 1, true)
+--========================================================
+-- DRAG SUPPORT
+--========================================================
+
+local function MakeDraggable(object, handle)
+    local dragging = false
+    local dragInput
+    local startPos
+    local objectPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType ==
+            Enum.UserInputType.Touch
+        or input.UserInputType ==
+            Enum.UserInputType.MouseButton1 then
+
+            dragging = true
+            startPos = input.Position
+            objectPos = object.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState ==
+                    Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType ==
+            Enum.UserInputType.Touch
+        or input.UserInputType ==
+            Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if closed then return end
+
+        if dragging and input == dragInput then
+            local delta = input.Position - startPos
+
+            object.Position = UDim2.new(
+                objectPos.X.Scale,
+                objectPos.X.Offset + delta.X,
+                objectPos.Y.Scale,
+                objectPos.Y.Offset + delta.Y
+            )
+        end
     end)
 end
 
---========================================================--
--- KHI NGƯỜI CHƠI TỰ NHẤN TƯƠNG TÁC
---========================================================--
+MakeDraggable(main, title)
+MakeDraggable(icon, icon)
 
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
-    if player == Player then
-        FastInteract(prompt)
+--========================================================
+-- HIDE / SHOW
+--========================================================
+
+hide.Activated:Connect(function()
+    main.Visible = false
+    icon.Visible = true
+end)
+
+icon.Activated:Connect(function()
+    main.Visible = true
+    icon.Visible = false
+end)
+
+--========================================================
+-- BUTTON 1: TELE 1 → WAIT NEAR TRACKSTART → TELE 2
+--========================================================
+
+tele12.Activated:Connect(function()
+    if busy then
+        status.Text = "ĐANG TELEPORT..."
+        return
+    end
+
+    if enabled then
+        enabled = false
+        tele12.Text = "TELE 1 → 2 • START"
+        status.Text = "ĐÃ DỪNG"
+        return
+    end
+
+    enabled = true
+    tele12.Text = "TELE 1 → 2 • STOP"
+    status.Text = "ĐANG TELE 1..."
+
+    task.spawn(function()
+        if not TeleportFirst() then
+            enabled = false
+            tele12.Text = "TELE 1 → 2 • START"
+            status.Text = "KHÔNG CÓ NHÂN VẬT"
+            return
+        end
+
+        status.Text = "ĐANG TÌM TRACKSTART..."
+        local target
+
+        for _ = 1, 30 do
+            if not enabled or closed then return end
+
+            target = FindTrackStart()
+            if target then break end
+
+            task.wait(0.2)
+        end
+
+        if not enabled or closed then return end
+
+        if not target then
+            status.Text = "KHÔNG TÌM THẤY TRACKSTART"
+            enabled = false
+            tele12.Text = "TELE 1 → 2 • START"
+            return
+        end
+
+        status.Text = "CHỜ TRONG 10 STUDS..."
+
+        while enabled and not closed do
+            local _, _, root = GetParts()
+
+            if not root or not target.Parent then
+                status.Text = "MẤT NHÂN VẬT / MỤC TIÊU"
+                break
+            end
+
+            if (root.Position - target.Position).Magnitude
+                <= TRIGGER_DISTANCE then
+
+                status.Text = "ĐANG TELE 2..."
+                enabled = false
+
+                local success = SmoothTeleport(
+                    target.Position + Vector3.new(0, 3, 0)
+                )
+
+                if not closed then
+                    status.Text = success
+                        and "TELE 1 → 2 • HOÀN TẤT"
+                        or "TELE 2 THẤT BẠI"
+                end
+
+                break
+            end
+
+            task.wait(0.15)
+        end
+
+        enabled = false
+
+        if not closed then
+            tele12.Text = "TELE 1 → 2 • START"
+        end
+    end)
+end)
+
+--========================================================
+-- BUTTON 2: TELE 3 CYCLE
+-- 1. THIRD_POSITION
+-- 2. TRACKSTART
+--========================================================
+
+tele3.Activated:Connect(function()
+    if busy then
+        status.Text = "ĐANG TELEPORT..."
+        return
+    end
+
+    if tele3Step == 1 then
+        if TeleportThird() then
+            tele3Step = 2
+            tele3.Text = "TELE 3 • VỀ TRACKSTART"
+            status.Text = "ĐÃ TELE ĐIỂM 2"
+        else
+            status.Text = "CHƯA CÓ NHÂN VẬT"
+        end
+
+    else
+        local target = FindTrackStart()
+
+        if not target then
+            status.Text = "KHÔNG TÌM THẤY TRACKSTART"
+            return
+        end
+
+        local char = GetParts()
+
+        if not char then
+            status.Text = "CHƯA CÓ NHÂN VẬT"
+            return
+        end
+
+        char:PivotTo(
+            CFrame.new(
+                target.Position + Vector3.new(0, 3, 0)
+            )
+        )
+
+        tele3Step = 1
+        tele3.Text = "TELE 3 • ĐIỂM 2"
+        status.Text = "ĐÃ VỀ TRACKSTART"
     end
 end)
 
--- Prompt yêu cầu nhấn 1 lần
-ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
-    if player == Player then
-        FastInteract(prompt)
-    end
-end)
+--========================================================
+-- CLOSE + CLEANUP
+--========================================================
 
---========================================================--
--- THÔNG BÁO
---========================================================--
+close.Activated:Connect(function()
+    closed = true
+    enabled = false
 
-pcall(function()
-    StarterGui:SetCore("SendNotification", {
-        Title = "ZYNTRIX",
-        Text = "Đã bật tương tác nhanh ⚡",
-        Duration = 3
-    })
+    borderTween:Cancel()
+    pulseTween:Cancel()
+    iconTween:Cancel()
+
+    gui:Destroy()
 end)
