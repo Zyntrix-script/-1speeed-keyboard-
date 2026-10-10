@@ -487,7 +487,7 @@ end))
 KeepConnection(tele12.Activated:Connect(function()
     if enabled or busy then
         enabled = false
-        status.Text = "ĐANG LOADING ..."
+        status.Text = ""
         return
     end
 
@@ -525,7 +525,7 @@ KeepConnection(tele12.Activated:Connect(function()
         end
 
         if not target then
-            status.Text = "Lol"
+            status.Text = ""
             enabled = false
             tele12.Text = "CHỐNG HỘ VỆ"
             return
