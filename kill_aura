@@ -1,7 +1,8 @@
+
 --========================================================
--- ZYNTRIX PRIME • TRACKSTART MINI V6
--- THUMBNAIL ICON | HIDE / SHOW | MOBILE
--- TELE 1 → 2 | TELE 3 CYCLE
+-- ZYNTRIX PRIME • FURINA MINI V7
+-- MOBILE • 50% TRANSPARENCY • NEON SHINE
+-- THUMBNAIL FIX • TELE 1 → 2 | TELE 3 CYCLE
 --========================================================
 
 local Players = game:GetService("Players")
@@ -16,21 +17,28 @@ local PG = LP:WaitForChild("PlayerGui")
 -- CONFIG
 --========================================================
 
-local THUMBNAIL_ID = "YOUR_THUMBNAIL_ID"
+local BACKGROUND_ID = "84603425243479"
+local THUMBNAIL_ID = "18296162192"
 
 local FIRST_POSITION = Vector3.new(549, 71, -364)
 local THIRD_POSITION = Vector3.new(574, 71, -362)
 
 local TRIGGER_DISTANCE = 10
 local STEPS = 18
+local TRANSPARENCY = 0.5
 
 local CYAN = Color3.fromRGB(0, 212, 255)
+local BLUE = Color3.fromRGB(65, 105, 225)
+local ICE = Color3.fromRGB(185, 242, 255)
 local DARK = Color3.fromRGB(7, 12, 23)
 
 local enabled = false
 local busy = false
 local closed = false
 local tele3Step = 1
+
+local connections = {}
+local tweens = {}
 
 --========================================================
 -- CLEAN OLD UI
@@ -39,6 +47,17 @@ local tele3Step = 1
 local old = PG:FindFirstChild("ZyntrixTrackMini")
 if old then
     old:Destroy()
+end
+
+local function KeepConnection(c)
+    table.insert(connections, c)
+    return c
+end
+
+local function KeepTween(t)
+    table.insert(tweens, t)
+    t:Play()
+    return t
 end
 
 --========================================================
@@ -57,46 +76,35 @@ local function GetParts()
     end
 end
 
-local function TeleportFirst()
+local function TeleportTo(position)
     local char = GetParts()
     if not char then return false end
 
-    char:PivotTo(CFrame.new(FIRST_POSITION))
-    return true
-end
-
-local function TeleportThird()
-    local char = GetParts()
-    if not char then return false end
-
-    char:PivotTo(CFrame.new(THIRD_POSITION))
+    char:PivotTo(CFrame.new(position))
     return true
 end
 
 --========================================================
--- FIND TARGET
+-- FIND TRACKSTART
 --========================================================
 
-local function FindNamedTarget(name)
+local function FindTrackStart()
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == name then
+        if closed then return end
+
+        if obj.Name == "TrackStart" then
             if obj:IsA("BasePart") then
                 return obj
             elseif obj:IsA("Model") then
                 local part = obj.PrimaryPart
-                    or obj:FindFirstChildWhichIsA(
-                        "BasePart", true
-                    )
+                    or obj:FindFirstChildWhichIsA("BasePart", true)
+
                 if part then
                     return part
                 end
             end
         end
     end
-end
-
-local function FindTrackStart()
-    return FindNamedTarget("TrackStart")
 end
 
 --========================================================
@@ -108,7 +116,6 @@ local function SmoothTeleport(target)
     busy = true
 
     local char, hum, root = GetParts()
-
     if not char then
         busy = false
         return false
@@ -119,7 +126,7 @@ local function SmoothTeleport(target)
 
     for i = 1, STEPS do
         if closed or not char.Parent
-        or not root.Parent or hum.Health <= 0 then
+            or not root.Parent or hum.Health <= 0 then
             busy = false
             return false
         end
@@ -137,30 +144,63 @@ local function SmoothTeleport(target)
 end
 
 --========================================================
--- GUI
+-- GUI ROOT
 --========================================================
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ZyntrixTrackMini"
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 99
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = PG
 
 --========================================================
--- MAIN FRAME
+-- MAIN PANEL
 --========================================================
 
 local main = Instance.new("Frame")
 main.Name = "Main"
-main.Size = UDim2.fromOffset(178, 116)
-main.Position = UDim2.new(0.5, -89, 0.3, 0)
+main.Size = UDim2.fromOffset(190, 122)
+main.Position = UDim2.new(0.5, -95, 0.3, 0)
 main.BackgroundColor3 = DARK
+main.BackgroundTransparency = TRANSPARENCY
 main.BorderSizePixel = 0
 main.Active = true
+main.ClipsDescendants = true
+main.ZIndex = 1
 main.Parent = gui
 
 Instance.new("UICorner", main).CornerRadius =
-    UDim.new(0, 10)
+    UDim.new(0, 12)
+
+--========================================================
+-- BACKGROUND IMAGE
+--========================================================
+
+local bg = Instance.new("ImageLabel")
+bg.Name = "FurinaBackground"
+bg.Size = UDim2.fromScale(1, 1)
+bg.BackgroundTransparency = 1
+bg.Image = "rbxassetid://" .. BACKGROUND_ID
+bg.ImageTransparency = 0.5
+bg.ScaleType = Enum.ScaleType.Crop
+bg.ZIndex = 1
+bg.Parent = main
+
+Instance.new("UICorner", bg).CornerRadius =
+    UDim.new(0, 12)
+
+local overlay = Instance.new("Frame")
+overlay.Name = "GlassOverlay"
+overlay.Size = UDim2.fromScale(1, 1)
+overlay.BackgroundColor3 = DARK
+overlay.BackgroundTransparency = 0.5
+overlay.BorderSizePixel = 0
+overlay.ZIndex = 1
+overlay.Parent = main
+
+Instance.new("UICorner", overlay).CornerRadius =
+    UDim.new(0, 12)
 
 --========================================================
 -- NEON BORDER
@@ -169,44 +209,32 @@ Instance.new("UICorner", main).CornerRadius =
 local stroke = Instance.new("UIStroke")
 stroke.Thickness = 1.5
 stroke.Color = CYAN
-stroke.Transparency = 0.05
+stroke.Transparency = 0.5
 stroke.Parent = main
 
 local borderGradient = Instance.new("UIGradient")
 borderGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(
-        0, Color3.fromRGB(0, 60, 110)
-    ),
+    ColorSequenceKeypoint.new(0, BLUE),
     ColorSequenceKeypoint.new(0.35, CYAN),
-    ColorSequenceKeypoint.new(
-        0.5, Color3.new(1, 1, 1)
-    ),
+    ColorSequenceKeypoint.new(0.5, ICE),
     ColorSequenceKeypoint.new(0.65, CYAN),
-    ColorSequenceKeypoint.new(
-        1, Color3.fromRGB(0, 60, 110)
-    )
+    ColorSequenceKeypoint.new(1, BLUE)
 })
 borderGradient.Parent = stroke
 
-local borderTween = TweenService:Create(
+KeepTween(TweenService:Create(
     borderGradient,
-    TweenInfo.new(
-        2.8, Enum.EasingStyle.Linear,
-        Enum.EasingDirection.InOut, -1
-    ),
+    TweenInfo.new(3, Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut, -1),
     {Rotation = 360}
-)
-borderTween:Play()
+))
 
-local pulseTween = TweenService:Create(
+KeepTween(TweenService:Create(
     stroke,
-    TweenInfo.new(
-        1.2, Enum.EasingStyle.Sine,
-        Enum.EasingDirection.InOut, -1, true
-    ),
-    {Thickness = 2.2, Transparency = 0.2}
-)
-pulseTween:Play()
+    TweenInfo.new(1.5, Enum.EasingStyle.Sine,
+        Enum.EasingDirection.InOut, -1, true),
+    {Transparency = 0.25, Thickness = 2}
+))
 
 --========================================================
 -- TEXT SHINE
@@ -216,65 +244,57 @@ local function AddTextShine(label)
     local grad = Instance.new("UIGradient")
     grad.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, CYAN),
-        ColorSequenceKeypoint.new(0.38, CYAN),
-        ColorSequenceKeypoint.new(
-            0.5, Color3.new(1, 1, 1)
-        ),
-        ColorSequenceKeypoint.new(0.62, CYAN),
+        ColorSequenceKeypoint.new(0.42, CYAN),
+        ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
+        ColorSequenceKeypoint.new(0.58, CYAN),
         ColorSequenceKeypoint.new(1, CYAN)
     })
 
     grad.Offset = Vector2.new(-1, 0)
     grad.Parent = label
 
-    local tween = TweenService:Create(
+    KeepTween(TweenService:Create(
         grad,
-        TweenInfo.new(
-            2.2, Enum.EasingStyle.Linear,
-            Enum.EasingDirection.InOut, -1
-        ),
+        TweenInfo.new(2.5, Enum.EasingStyle.Linear,
+            Enum.EasingDirection.InOut, -1),
         {Offset = Vector2.new(1, 0)}
-    )
-    tween:Play()
+    ))
 end
 
 --========================================================
--- TITLE
+-- TITLE / CONTROLS
 --========================================================
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -54, 0, 24)
-title.Position = UDim2.fromOffset(8, 1)
+title.Name = "Title"
+title.Size = UDim2.new(1, -75, 0, 24)
+title.Position = UDim2.fromOffset(8, 2)
 title.BackgroundTransparency = 1
-title.Text = "ZYNTRIX PRIME"
-title.TextColor3 = CYAN
-title.TextSize = 12
+title.Text = "ZYNTRIX • STEAL AN EGG"
+title.TextColor3 = ICE
+title.TextSize = 11
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Active = true
+title.ZIndex = 3
 title.Parent = main
 
 AddTextShine(title)
 
---========================================================
--- CLOSE BUTTON
---========================================================
-
 local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(24, 23)
+close.Name = "Close"
+close.Size = UDim2.fromOffset(22, 23)
 close.Position = UDim2.new(1, -25, 0, 1)
 close.BackgroundTransparency = 1
 close.Text = "×"
-close.TextColor3 = Color3.new(1, 1, 1)
+close.TextColor3 = ICE
 close.TextSize = 19
 close.Font = Enum.Font.GothamBold
+close.ZIndex = 4
 close.Parent = main
 
---========================================================
--- HIDE BUTTON
---========================================================
-
 local hide = Instance.new("TextButton")
+hide.Name = "Hide"
 hide.Size = UDim2.fromOffset(22, 23)
 hide.Position = UDim2.new(1, -48, 0, 1)
 hide.BackgroundTransparency = 1
@@ -282,10 +302,11 @@ hide.Text = "−"
 hide.TextColor3 = CYAN
 hide.TextSize = 19
 hide.Font = Enum.Font.GothamBold
+hide.ZIndex = 4
 hide.Parent = main
 
 --========================================================
--- FLOATING THUMBNAIL ICON
+-- FLOATING THUMBNAIL
 --========================================================
 
 local icon = Instance.new("ImageButton")
@@ -293,56 +314,58 @@ icon.Name = "ThumbnailToggle"
 icon.Size = UDim2.fromOffset(48, 48)
 icon.Position = UDim2.new(0, 18, 0.5, -24)
 icon.BackgroundColor3 = DARK
+icon.BackgroundTransparency = 0.15
 icon.BorderSizePixel = 0
 icon.Image = "rbxassetid://" .. THUMBNAIL_ID
-icon.ScaleType = Enum.ScaleType.Crop
+icon.ImageTransparency = 0
+icon.ScaleType = Enum.ScaleType.Fit
 icon.Visible = false
 icon.Active = true
-icon.AutoButtonColor = true
+icon.ZIndex = 10
 icon.Parent = gui
 
 Instance.new("UICorner", icon).CornerRadius =
-    UDim.new(0, 14)
+    UDim.new(0, 12)
 
 local iconStroke = Instance.new("UIStroke")
 iconStroke.Color = CYAN
 iconStroke.Thickness = 2
+iconStroke.Transparency = 0.3
 iconStroke.Parent = icon
 
 local iconGradient = Instance.new("UIGradient")
 iconGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, CYAN),
-    ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
+    ColorSequenceKeypoint.new(0, BLUE),
+    ColorSequenceKeypoint.new(0.5, ICE),
     ColorSequenceKeypoint.new(1, CYAN)
 })
 iconGradient.Parent = iconStroke
 
-local iconTween = TweenService:Create(
+KeepTween(TweenService:Create(
     iconGradient,
-    TweenInfo.new(
-        2, Enum.EasingStyle.Linear,
-        Enum.EasingDirection.InOut, -1
-    ),
+    TweenInfo.new(3, Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut, -1),
     {Rotation = 360}
-)
-iconTween:Play()
+))
 
 --========================================================
 -- STATUS
 --========================================================
 
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, -12, 0, 15)
-status.Position = UDim2.fromOffset(6, 24)
+status.Name = "Status"
+status.Size = UDim2.new(1, -12, 0, 14)
+status.Position = UDim2.fromOffset(6, 26)
 status.BackgroundTransparency = 1
-status.Text = "READY • 2 TELEPORT"
-status.TextColor3 = Color3.fromRGB(175, 205, 220)
+status.Text = "SẴN SÀNG • BYPASS"
+status.TextColor3 = ICE
 status.TextSize = 9
 status.Font = Enum.Font.Gotham
+status.ZIndex = 3
 status.Parent = main
 
 --========================================================
--- BUTTON CREATOR
+-- BUTTONS
 --========================================================
 
 local function MakeButton(name, text, y, color)
@@ -351,21 +374,23 @@ local function MakeButton(name, text, y, color)
     b.Size = UDim2.new(1, -12, 0, 29)
     b.Position = UDim2.fromOffset(6, y)
     b.BackgroundColor3 = color
+    b.BackgroundTransparency = 0.5
     b.BorderSizePixel = 0
     b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextColor3 = ICE
     b.TextSize = 10
     b.Font = Enum.Font.GothamBold
     b.AutoButtonColor = true
+    b.ZIndex = 3
     b.Parent = main
 
     Instance.new("UICorner", b).CornerRadius =
-        UDim.new(0, 6)
+        UDim.new(0, 7)
 
     local bs = Instance.new("UIStroke")
-    bs.Color = Color3.fromRGB(0, 150, 200)
-    bs.Thickness = 0.8
-    bs.Transparency = 0.2
+    bs.Color = CYAN
+    bs.Thickness = 1
+    bs.Transparency = 0.5
     bs.Parent = b
 
     AddTextShine(b)
@@ -374,16 +399,16 @@ end
 
 local tele12 = MakeButton(
     "Teleport1And2",
-    "TELE 1 → 2 • START",
-    43,
-    Color3.fromRGB(0, 75, 112)
+    "CHỐNG HỘ VỆ",
+    44,
+    Color3.fromRGB(0, 100, 150)
 )
 
 local tele3 = MakeButton(
     "Teleport3",
-    "TELE 3 • ĐIỂM 2",
-    77,
-    Color3.fromRGB(0, 105, 145)
+    "CƯỚP TRỨNG NHANH",
+    79,
+    Color3.fromRGB(55, 85, 170)
 )
 
 --========================================================
@@ -396,38 +421,36 @@ local function MakeDraggable(object, handle)
     local startPos
     local objectPos
 
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType ==
-            Enum.UserInputType.Touch
-        or input.UserInputType ==
-            Enum.UserInputType.MouseButton1 then
+    KeepConnection(handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
 
             dragging = true
             startPos = input.Position
             objectPos = object.Position
 
-            input.Changed:Connect(function()
-                if input.UserInputState ==
-                    Enum.UserInputState.End then
+            KeepConnection(input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
                 end
-            end)
+            end))
         end
-    end)
+    end))
 
-    handle.InputChanged:Connect(function(input)
-        if input.UserInputType ==
-            Enum.UserInputType.Touch
-        or input.UserInputType ==
-            Enum.UserInputType.MouseMovement then
+    KeepConnection(handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
-    end)
+    end))
 
-    UIS.InputChanged:Connect(function(input)
+    KeepConnection(UIS.InputChanged:Connect(function(input)
         if closed then return end
 
-        if dragging and input == dragInput then
+        if dragging and (
+            input == dragInput
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
             local delta = input.Position - startPos
 
             object.Position = UDim2.new(
@@ -437,7 +460,7 @@ local function MakeDraggable(object, handle)
                 objectPos.Y.Offset + delta.Y
             )
         end
-    end)
+    end))
 end
 
 MakeDraggable(main, title)
@@ -447,63 +470,64 @@ MakeDraggable(icon, icon)
 -- HIDE / SHOW
 --========================================================
 
-hide.Activated:Connect(function()
+KeepConnection(hide.Activated:Connect(function()
     main.Visible = false
     icon.Visible = true
-end)
+end))
 
-icon.Activated:Connect(function()
+KeepConnection(icon.Activated:Connect(function()
     main.Visible = true
     icon.Visible = false
-end)
+end))
 
 --========================================================
--- BUTTON 1: TELE 1 → WAIT NEAR TRACKSTART → TELE 2
+-- BUTTON 1: TELEPORT 1 → TRACKSTART
 --========================================================
 
-tele12.Activated:Connect(function()
-    if busy then
-        status.Text = "ĐANG TELEPORT..."
-        return
-    end
-
-    if enabled then
+KeepConnection(tele12.Activated:Connect(function()
+    if enabled or busy then
         enabled = false
-        tele12.Text = "TELE 1 → 2 • START"
-        status.Text = "ĐÃ DỪNG"
+        status.Text = "ĐANG LOADING ..."
         return
     end
 
     enabled = true
-    tele12.Text = "TELE 1 → 2 • STOP"
+    tele12.Text = "DỪNG CHỐNG HỘ VỆ"
     status.Text = "ĐANG TELE 1..."
 
     task.spawn(function()
-        if not TeleportFirst() then
+        if not TeleportTo(FIRST_POSITION) then
             enabled = false
-            tele12.Text = "TELE 1 → 2 • START"
-            status.Text = "KHÔNG CÓ NHÂN VẬT"
+            if not closed then
+                tele12.Text = "CHỐNG HỘ VỆ"
+                status.Text = "KHÔNG CÓ NHÂN VẬT"
+            end
             return
         end
 
-        status.Text = "ĐANG TÌM TRACKSTART..."
-        local target
+        status.Text = "ĐANG TÌM BYPASS ..."
 
+        local target
         for _ = 1, 30 do
-            if not enabled or closed then return end
+            if not enabled or closed then
+                enabled = false
+                return
+            end
 
             target = FindTrackStart()
             if target then break end
-
             task.wait(0.2)
         end
 
-        if not enabled or closed then return end
+        if not enabled or closed then
+            enabled = false
+            return
+        end
 
         if not target then
-            status.Text = "KHÔNG TÌM THẤY TRACKSTART"
+            status.Text = "Lol"
             enabled = false
-            tele12.Text = "TELE 1 → 2 • START"
+            tele12.Text = "CHỐNG HỘ VỆ"
             return
         end
 
@@ -520,7 +544,7 @@ tele12.Activated:Connect(function()
             if (root.Position - target.Position).Magnitude
                 <= TRIGGER_DISTANCE then
 
-                status.Text = "ĐANG TELE 2..."
+                status.Text = "ĐANG BYPASS ..."
                 enabled = false
 
                 local success = SmoothTeleport(
@@ -529,10 +553,9 @@ tele12.Activated:Connect(function()
 
                 if not closed then
                     status.Text = success
-                        and "TELE 1 → 2 • HOÀN TẤT"
-                        or "TELE 2 THẤT BẠI"
+                        and "HOÀN TẤT TELE 1 → 2"
+                        or "Lol:)"
                 end
-
                 break
             end
 
@@ -540,72 +563,75 @@ tele12.Activated:Connect(function()
         end
 
         enabled = false
-
         if not closed then
-            tele12.Text = "TELE 1 → 2 • START"
+            tele12.Text = "CHỐNG HỘ VỆ"
         end
     end)
-end)
+end))
 
 --========================================================
 -- BUTTON 2: TELE 3 CYCLE
--- 1. THIRD_POSITION
--- 2. TRACKSTART
 --========================================================
 
-tele3.Activated:Connect(function()
+KeepConnection(tele3.Activated:Connect(function()
     if busy then
-        status.Text = "ĐANG TELEPORT..."
+        status.Text = "ĐANG BYPASS ..."
         return
     end
 
     if tele3Step == 1 then
-        if TeleportThird() then
+        if TeleportTo(THIRD_POSITION) then
             tele3Step = 2
-            tele3.Text = "TELE 3 • VỀ TRACKSTART"
-            status.Text = "ĐÃ TELE ĐIỂM 2"
+            tele3.Text = "VỀ NHÀ"
+            status.Text = "ĐÃ Tới" 
         else
             status.Text = "CHƯA CÓ NHÂN VẬT"
         end
-
     else
         local target = FindTrackStart()
-
         if not target then
-            status.Text = "KHÔNG TÌM THẤY TRACKSTART"
+            status.Text = "Lỗi"
             return
         end
 
         local char = GetParts()
-
         if not char then
             status.Text = "CHƯA CÓ NHÂN VẬT"
             return
         end
 
         char:PivotTo(
-            CFrame.new(
-                target.Position + Vector3.new(0, 3, 0)
-            )
+            CFrame.new(target.Position + Vector3.new(0, 3, 0))
         )
 
         tele3Step = 1
-        tele3.Text = "TELE 3 • ĐIỂM 2"
-        status.Text = "ĐÃ VỀ TRACKSTART"
+        tele3.Text = "CƯỚP TRỨNG NHANH"
+        status.Text = "ĐÃ VỀ AN TOÀN"
     end
-end)
+end))
 
 --========================================================
--- CLOSE + CLEANUP
+-- CLOSE / CLEANUP
 --========================================================
 
-close.Activated:Connect(function()
+KeepConnection(close.Activated:Connect(function()
+    if closed then return end
     closed = true
     enabled = false
 
-    borderTween:Cancel()
-    pulseTween:Cancel()
-    iconTween:Cancel()
+    for _, tween in ipairs(tweens) do
+        pcall(function()
+            tween:Cancel()
+        end)
+    end
+
+    for _, connection in ipairs(connections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
 
     gui:Destroy()
-end)
+end))
+
+print("ZYNTRIX PRIME • FURINA MINI V7 loaded")
